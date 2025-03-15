@@ -1,0 +1,195 @@
+{
+	"info": {
+		"_postman_id": "1180d918-862a-4bfc-95a1-28054a958adf",
+		"name": "api-demo-test",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "42549977"
+	},
+	"item": [
+		{
+			"name": "graphql-api.js_get",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:4000/graphql?query=query {\n  users {\n    id\n    name\n    email\n  }\n}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4000",
+					"path": [
+						"graphql"
+					],
+					"query": [
+						{
+							"key": "query",
+							"value": "query {\n  user(id: \"1\") {\n    id\n    name\n    email\n  }\n}",
+							"disabled": true
+						},
+						{
+							"key": "query",
+							"value": "query {\n  users {\n    id\n    name\n    email\n  }\n}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "graphql-api.js_post_addUser",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:4000/graphql?query=mutation{addUser(name: \"huy2\", email: \"huy2@gm.com\"){\n    id\n    name\n    email\n  }}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4000",
+					"path": [
+						"graphql"
+					],
+					"query": [
+						{
+							"key": "query",
+							"value": "mutation{addUser(name: \"huy2\", email: \"huy2@gm.com\"){\n    id\n    name\n    email\n  }}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "graphql-api.js_post_updateUser",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:4000/graphql?query=mutation{updateUser(id: \"3\", name: \"huy3\", email: \"huy3@gm.com\"){\n    id\n    name\n    email\n  }}",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4000",
+					"path": [
+						"graphql"
+					],
+					"query": [
+						{
+							"key": "query",
+							"value": "mutation{updateUser(id: \"3\", name: \"huy3\", email: \"huy3@gm.com\"){\n    id\n    name\n    email\n  }}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "rest-api.js_get_users",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/users",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "rest-api.js_get_user",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/users/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"users",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "rest-api.js_post",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"name\": \"Huy2\", \"email\": \"huy2@example.com\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/users",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "rest-api.js_put",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"name\": \"Huy3\", \"email\": \"huy3@ex.com\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/users/3",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"users",
+						"3"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

@@ -1,0 +1,113 @@
+{
+	"info": {
+		"_postman_id": "d3fe8cb7-0b55-430a-9362-6827cd8b1c1c",
+		"name": "jwt-auth",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "42549977"
+	},
+	"item": [
+		{
+			"name": "post_login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"username\":\"huy2\",\"password\":\"123456\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get_protected",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTc0MTM0MTI0MCwiZXhwIjoxNzQxMzQ0ODQwfQ.XDA1pWiq13dM5PteUn8eLZd8N-qFR4E9qCKpQHYB8Qs",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:3000/protected",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"protected"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get_logout",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc0MTM0MjEyMywiZXhwIjoxNzQxMzQ1NzIzfQ.AswWeZGrlmBxbxQOVbpHx7tq3bn4_dK4-qbT-hRFtBE",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:3000/logout",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"logout"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get_secret",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzQxMzQyMTczLCJleHAiOjE3NDEzNDU3NzN9.KG5-DGDG5VcCRYLNjqVEfRcG2VIwNG_1KpgoDLzbWdg",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:3000/secret",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"secret"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
