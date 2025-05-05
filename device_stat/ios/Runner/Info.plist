@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app requires access to the local network for development purposes.</string>
+
 	<key>NSFileSystemUsageDescription</key>
 	<string>This app requires access to the file system to display disk space information.</string>
 	<key>NSLocalNetworkUsageDescription</key>
