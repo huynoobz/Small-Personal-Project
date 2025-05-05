@@ -39,16 +39,30 @@ class DeviceStatus {
   }
 
   Future<void> updateStat() async {
-    totalRam = SysInfo.getTotalPhysicalMemory() / (1024 * 1024 * 1024); // In GB
-    freeRam = SysInfo.getFreePhysicalMemory() / (1024 * 1024 * 1024); // In GB
-
-    final deviceInfo = DeviceInfoPlugin();
-    if (Platform.isAndroid) {
-      hardwareInfo = (await deviceInfo.androidInfo).hardware;
-    } else if (Platform.isIOS) {
-      hardwareInfo = (await deviceInfo.iosInfo).utsname.machine;
+    // Use platform-specific logic for RAM
+    if (Platform.isAndroid || Platform.isIOS) {
+      final deviceInfo = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        hardwareInfo = androidInfo.hardware;
+        totalRam =
+            SysInfo.getTotalPhysicalMemory() / (1024 * 1024 * 1024); // In GB
+        freeRam =
+            SysInfo.getFreeVirtualMemory() / (1024 * 1024 * 1024); // In GB
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        hardwareInfo = iosInfo.utsname.machine;
+        // iOS does not provide direct RAM info, so set it to 0 or a default value
+        totalRam = 0;
+        freeRam = 0;
+      }
+    } else {
+      hardwareInfo = "Unsupported OS";
+      totalRam = 0;
+      freeRam = 0;
     }
 
+    // Disk space
     DiskSpacePlus diskSpacePlus = DiskSpacePlus();
     freeDiskSpace = (await diskSpacePlus.getFreeDiskSpace)! / (1024); // In GB
     totalDiskSpace = (await diskSpacePlus.getTotalDiskSpace)! / (1024); // In GB
