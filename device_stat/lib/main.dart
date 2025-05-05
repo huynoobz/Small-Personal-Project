@@ -93,7 +93,7 @@ void main() async {
       interceptNetwork: true,
       fpsWarningThreshold: 45,
       enableNetworkMonitoring: true,
-      enableBatteryMonitoring: true,
+      enableBatteryMonitoring: false,
       enableDeviceInfo: true,
       enableDiskMonitoring: true,
       diskWarningThreshold: 85.0, // Warn at 85% disk usage
