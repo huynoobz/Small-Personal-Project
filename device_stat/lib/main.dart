@@ -4,6 +4,7 @@ import 'package:system_info/system_info.dart';
 import 'package:disk_space_plus/disk_space_plus.dart';
 import 'package:flutter_performance_pulse/flutter_performance_pulse.dart';
 import 'dart:async';
+import 'dart:io';
 
 // This class is used to manage the device status and system information
 class DeviceStatus {
@@ -41,7 +42,13 @@ class DeviceStatus {
     totalRam = SysInfo.getTotalPhysicalMemory() / (1024 * 1024 * 1024); // In GB
     freeRam = SysInfo.getFreePhysicalMemory() / (1024 * 1024 * 1024); // In GB
 
-    hardwareInfo = (await DeviceInfoPlugin().androidInfo).hardware;
+    final deviceInfo = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      hardwareInfo = (await deviceInfo.androidInfo).hardware;
+    } else if (Platform.isIOS) {
+      hardwareInfo = (await deviceInfo.iosInfo).utsname.machine;
+    }
+
     DiskSpacePlus diskSpacePlus = DiskSpacePlus();
     freeDiskSpace = (await diskSpacePlus.getFreeDiskSpace)! / (1024); // In GB
     totalDiskSpace = (await diskSpacePlus.getTotalDiskSpace)! / (1024); // In GB
