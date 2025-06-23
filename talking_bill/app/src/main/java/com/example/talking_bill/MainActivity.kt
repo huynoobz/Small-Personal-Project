@@ -35,6 +35,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
+import android.Manifest
+import androidx.core.app.ActivityCompat
 
 /**
  * Main activity for the Talking Bill application.
@@ -45,6 +47,7 @@ import java.util.*
  * - Background service for continuous monitoring
  * - Battery optimization handling
  * - Notification history management
+ * - Automatic service start after permissions are granted (no manual switch)
  */
 class MainActivity : AppCompatActivity() {
     // UI Components
@@ -58,11 +61,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var resetButton: Button
     private lateinit var saveToggle: Switch
     private lateinit var filterToggle: Switch
-    private lateinit var serviceSwitch: Switch
     private lateinit var notificationsRecyclerView: RecyclerView
     private var batteryOptimizationDialog: AlertDialog? = null
     private lateinit var loadingOverlay: FrameLayout
     private lateinit var loadingText: TextView
+    private val REQUEST_CODE_POST_NOTIFICATIONS = 1001
 
     /**
      * Broadcast receiver for handling notification updates from the service.
@@ -95,9 +98,11 @@ class MainActivity : AppCompatActivity() {
     /**
      * Initializes the activity and sets up all necessary components.
      * - Initializes UI components
-     - Sets up notification monitoring
-     - Configures user preferences
-     - Handles battery optimization
+     * - Sets up notification monitoring
+     * - Configures user preferences
+     * - Handles battery optimization
+     * - Requests notification permissions (Android 13+)
+     * - Service starts automatically after all permissions are granted
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -145,13 +150,13 @@ class MainActivity : AppCompatActivity() {
         setupAdapters()
         setupClickListeners()
         setupToggles()
-        setupServiceSwitch()
         registerBroadcastReceiver()
         loadConfig()
         checkNotificationAccess()
         startServiceIfNeeded()
         updateUI()
         hideLoading()
+        requestNotificationPermissionIfNeeded()
     }
 
     /**
@@ -166,7 +171,6 @@ class MainActivity : AppCompatActivity() {
         resetButton = binding.resetButton
         saveToggle = binding.saveToggle
         filterToggle = binding.filterToggle
-        serviceSwitch = binding.serviceSwitch
         notificationsRecyclerView = binding.notificationsRecyclerView
     }
 
@@ -246,34 +250,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Sets up the service switch for controlling the notification listener service.
-     * Handles starting and stopping the service based on user preference.
-     */
-    private fun setupServiceSwitch() {
-        serviceSwitch.isChecked = prefs.getBoolean(KEY_SERVICE_STATE, false)
-        serviceSwitch.setOnCheckedChangeListener { _, isChecked ->
-            updateSwitchColor(isChecked)
-            prefs.edit().putBoolean(KEY_SERVICE_STATE, isChecked).apply()
-            
-            if (isNotificationServiceEnabled()) {
-                if (isChecked) {
-                    startForegroundService()
-                    showCustomToast("Service Started", true)
-                } else {
-                    stopForegroundService()
-                    showCustomToast("Service Stopped", false)
-                }
-            } else {
-                showCustomToast("Please enable notification access first", false)
-                serviceSwitch.isChecked = false
-                updateSwitchColor(false)
-                prefs.edit().putBoolean(KEY_SERVICE_STATE, false).apply()
-            }
-        }
-        updateSwitchColor(serviceSwitch.isChecked)
-    }
-
-    /**
      * Registers the broadcast receiver for notification updates.
      * This allows the activity to receive notification events from the service.
      */
@@ -289,8 +265,6 @@ class MainActivity : AppCompatActivity() {
     private fun startServiceIfNeeded() {
         if (isNotificationServiceEnabled() && prefs.getBoolean(KEY_SERVICE_STATE, false)) {
             startForegroundService()
-            serviceSwitch.isChecked = true
-            updateSwitchColor(true)
         }
     }
 
@@ -339,8 +313,6 @@ class MainActivity : AppCompatActivity() {
             loadNotifications()
         } else {
             stopForegroundService()
-            serviceSwitch.isChecked = false
-            updateSwitchColor(false)
             prefs.edit().putBoolean(KEY_SERVICE_STATE, false).apply()
         }
     }
@@ -630,20 +602,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Updates the service switch color based on its state.
-     * @param isChecked Whether the switch is checked
-     */
-    private fun updateSwitchColor(isChecked: Boolean) {
-        try {
-            val color = if (isChecked) R.color.switch_on else R.color.switch_off
-            serviceSwitch.thumbTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, color))
-            serviceSwitch.trackTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, color))
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error updating switch color", e)
-        }
-    }
-
-    /**
      * Shows a confirmation dialog before resetting the app.
      */
     private fun showResetConfirmationDialog() {
@@ -674,15 +632,12 @@ class MainActivity : AppCompatActivity() {
 
                     saveToggle.isChecked = true
                     filterToggle.isChecked = true
-                    serviceSwitch.isChecked = false
-                    updateSwitchColor(false)
 
                     prefs.edit()
                         .putString(KEY_SPEECH_PREFIX, "đã nhận")
                         .putString(KEY_SPEECH_CURRENCY, "đồng")
                         .putBoolean(KEY_SAVE_ENABLED, true)
                         .putBoolean(KEY_FILTER_ENABLED, true)
-                        .putBoolean(KEY_SERVICE_STATE, false)
                         .putBoolean(KEY_BACKGROUND_ENABLED, true)
                         .apply()
 
@@ -765,5 +720,36 @@ class MainActivity : AppCompatActivity() {
     private fun hideLoading() {
         loadingOverlay.visibility = View.GONE
         window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Notification Permission Required")
+                        .setMessage("This app needs notification permission to show important alerts and run reliably in the background.")
+                        .setPositiveButton("Allow") { _, _ ->
+                            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_CODE_POST_NOTIFICATIONS)
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                } else {
+                    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_CODE_POST_NOTIFICATIONS)
+                }
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE_POST_NOTIFICATIONS) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                showCustomToast("Notification permission granted", true)
+                startForegroundService()
+            } else {
+                showCustomToast("Notification permission denied. Some features may not work.", false)
+            }
+        }
     }
 }
