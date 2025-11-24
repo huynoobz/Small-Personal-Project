@@ -1,0 +1,30 @@
+{
+    "agribank": {
+        "receive_keyword": [": +", "chuyển khoản", "nhận tiền", "số dư"],
+        "m_regex": ["\\+0,0VND", "\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*VND"]
+    },
+    "momo": {
+        "receive_keyword": ["đã nhận", "nhận tiền", "chuyển tiền", "gửi tiền"],
+        "m_regex": ["0.0đ","0.0 ₫", "\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*đ"]
+    },
+    "messaging": {
+        "receive_keyword": ["lô", "nhận", "chuyển", "gửi"],
+        "m_regex": ["\\+0,0VND","0.0 ₫", "0.0đ", "\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?"]
+    },
+    "vietcombank": {
+        "receive_keyword": ["vietcombank", "vcb", "số dư", "giao dịch", "atm"],
+        "m_regex": ["\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*VND", "\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*đ"]
+    },
+    "techcombank": {
+        "receive_keyword": ["techcombank", "tcb", "số dư", "giao dịch", "atm"],
+        "m_regex": ["\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*VND", "\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*đ"]
+    },
+    "zalopay": {
+        "receive_keyword": ["zalopay", "zalo pay", "nhận được", "chuyển tiền"],
+        "m_regex": ["\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*đ", "\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*₫"]
+    },
+    "shopeepay": {
+        "receive_keyword": ["shopeepay", "shopee pay", "nhận được", "chuyển tiền"],
+        "m_regex": ["\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*đ", "\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?\\s*₫"]
+    }
+}
