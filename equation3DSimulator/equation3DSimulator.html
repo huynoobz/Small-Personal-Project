@@ -1,0 +1,2577 @@
+<!doctype html>
+<html version="1.6.54" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Equation 3D Simulator</title>
+  <style>
+    html, body { height: 100%; margin: 0; background: #000; color: #eaeaea; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    #app { position: fixed; inset: 0; overflow: hidden; }
+    #ui-panel {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      width: min(420px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      overflow: auto;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 12px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      z-index: 5;
+    }
+    #ui-panel.is-hidden { display: none; }
+    #ui-panel .header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    #ui-panel .title { font-weight: 700; margin: 0; }
+    #ui-panel .close-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #eaeaea;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 32px;
+      padding: 0;
+    }
+
+    #open-controls {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 6;
+      display: none;
+      padding: 9px 10px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #eaeaea;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+    }
+    #open-controls.is-visible { display: inline-block; }
+    #ui-panel .row { margin-bottom: 10px; }
+    #ui-panel .preset-controls { display: flex; gap: 8px; align-items: center; }
+    #ui-panel .preset-controls select { flex: 1 1 auto; }
+    #ui-panel .preset-mini-btn {
+      width: auto;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #eaeaea;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #ui-panel .preset-mini-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    #ui-panel label { display: block; font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
+    #ui-panel textarea, #ui-panel input, #ui-panel select {
+      width: 100%;
+      box-sizing: border-box;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #eaeaea;
+      border-radius: 10px;
+      padding: 8px 10px;
+      outline: none;
+    }
+    #ui-panel textarea { min-height: 64px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    #ui-panel .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    #ui-panel .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    #ui-panel button {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 10px;
+      background: rgba(255, 211, 107, 0.12);
+      border: 1px solid rgba(255, 211, 107, 0.25);
+      color: #ffd36b;
+      cursor: pointer;
+    }
+    #ui-panel button.secondary {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #eaeaea;
+    }
+    #ui-panel .hint { font-size: 12px; opacity: 0.78; line-height: 1.35; }
+    #error {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      padding: 10px 12px; border-radius: 10px;
+      background: rgba(140, 20, 20, 0.85); border: 1px solid rgba(255,255,255,0.12);
+      max-width: min(900px, calc(100vw - 24px));
+      display: none; white-space: pre-wrap;
+    }
+    #notice {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      padding: 10px 12px; border-radius: 10px;
+      background: rgba(20, 110, 40, 0.85); border: 1px solid rgba(255,255,255,0.12);
+      max-width: min(900px, calc(100vw - 24px));
+      display: none; white-space: pre-wrap;
+    }
+    /* Right settings panel (no dat.gui) */
+    #settings-panel {
+      position: fixed;
+      right: 12px;
+      top: 12px;
+      width: 340px;
+      max-width: calc(100vw - 24px);
+      max-height: calc(100vh - 24px);
+      overflow: hidden;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      z-index: 6;
+      display: flex;
+      flex-direction: column;
+    }
+    #settings-panel.is-hidden { display: none; }
+    #settings-panel .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 10px 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+    #settings-panel .settings-title { font-weight: 700; opacity: 0.95; }
+    /* Close button in header: wrap to content (no full-width) */
+    #settings-close {
+      width: auto;
+      min-width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #eaeaea;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 32px;
+      padding: 0 10px;
+    }
+    #settings-body {
+      overflow: auto;
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+    }
+    #settings-panel.is-collapsed #settings-body { display: none; }
+    #settings-panel label { display: block; font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
+    #settings-panel input, #settings-panel select {
+      width: 100%;
+      box-sizing: border-box;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #eaeaea;
+      border-radius: 10px;
+      padding: 8px 10px;
+      outline: none;
+    }
+    #settings-panel .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    #settings-panel button {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #eaeaea;
+      cursor: pointer;
+    }
+    /* Override for header button */
+    #settings-panel .settings-header button { width: auto; padding: 0 10px; }
+    #open-settings {
+      position: fixed;
+      right: 12px;
+      top: 12px;
+      z-index: 7;
+      display: none;
+      padding: 9px 10px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #eaeaea;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+    }
+
+    /* Controller sections */
+    .section-title {
+      margin: 10px 0 6px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.75;
+    }
+    .section-box {
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    /* Basic/Advanced toggle */
+    #ui-panel.basic [data-advanced="1"] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="error"></div>
+  <div id="notice"></div>
+  <button id="open-settings" title="Open settings" style="display:none;">Settings</button>
+  <div id="settings-panel">
+    <div class="settings-header">
+      <div id="settings-title" class="settings-title">Settings</div>
+      <button id="settings-close" title="Close settings" aria-label="Close settings">-</button>
+    </div>
+    <div id="settings-body">
+      <div>
+        <label id="settings-lang-label">Language</label>
+        <select id="settings-language">
+          <option value="vi">Tiếng Việt</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="grid">
+        <div>
+          <label id="settings-axes-label">Show axes</label>
+          <select id="settings-axes">
+            <option value="1">On</option>
+            <option value="0">Off</option>
+          </select>
+        </div>
+        <div>
+          <label id="settings-mode-label">Render mode</label>
+          <select id="settings-mode">
+            <option value="Line">Line</option>
+            <option value="Points">Points</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label id="settings-pointsize-label">Point size</label>
+        <div class="grid" style="grid-template-columns: 1fr 110px;">
+          <input id="settings-pointsize" type="range" min="0.001" max="0.08" step="0.001" value="0.01" />
+          <input id="settings-pointsize-num" type="number" min="0.001" max="0.08" step="0.001" value="0.01" />
+        </div>
+      </div>
+      <div class="grid">
+        <button id="settings-resetview">Reset view</button>
+      </div>
+    </div>
+  </div>
+  <div id="ui-panel">
+    <div class="header">
+      <div id="panel-title" class="title">3D Simulator Controller</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="toggle-advanced" class="close-btn" title="Toggle advanced controls" aria-label="Toggle advanced controls" style="font-size:12px; width:auto; padding:0 10px; line-height:32px;">Advanced</button>
+        <button id="close-controls" class="close-btn" title="Close controls" aria-label="Close controls">×</button>
+      </div>
+    </div>
+
+    <div id="section-model" class="section-title">Model</div>
+    <div class="section-box">
+      <div class="row">
+        <label>System category</label>
+        <select id="systemType">
+          <option value="algebraic" selected>Algebraic System</option>
+          <option value="ode_linear">ODE – Linear</option>
+          <option value="ode_nonlinear">ODE – Nonlinear</option>
+          <option value="map">Discrete Map</option>
+          <option value="pde_linear" disabled>PDE – Linear (coming soon)</option>
+          <option value="pde_nonlinear" disabled>PDE – Nonlinear (coming soon)</option>
+          <option value="dae" disabled>DAE System (coming soon)</option>
+          <option value="stochastic">Stochastic System (SDE)</option>
+          <option value="hybrid" disabled>Hybrid System (coming soon)</option>
+          <option value="hamilton" disabled>Hamilton/Lagrange System (coming soon)</option>
+          <option value="optimization" disabled>Optimization / Gradient Flow (coming soon)</option>
+          <option value="markov" disabled>Markov / Probabilistic System (coming soon)</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Preset</label>
+        <div class="preset-controls">
+          <select id="preset"></select>
+          <button id="save-custom" class="preset-mini-btn" title="Save current Custom as a new preset">Save</button>
+          <button id="delete-saved" class="preset-mini-btn" title="Delete selected saved preset" style="display:none;">Delete</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Search presets</label>
+        <input id="presetSearch" placeholder="Type to filter presets…" />
+      </div>
+
+      <div class="grid row">
+    <div>
+          <label>
+            <span id="dim-label">Dimension N</span>
+            <span style="float:right; font-weight:500; opacity:0.9;">
+              <input id="dimAuto" type="checkbox" checked style="width:auto; vertical-align:middle; margin-right:6px;" />
+              <span id="dim-auto-label">Auto</span>
+            </span>
+          </label>
+          <input id="dim" value="3" title="When Auto is ON: Simple=3, Vector=number of non-empty equation lines." />
+        </div>
+        <div data-advanced="1" id="proj-row">
+          <label>3D projection (x,y,z) indices (1-based)</label>
+          <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <input id="projX" value="1" title="X component index (1-based)" />
+            <input id="projY" value="2" title="Y component index (1-based)" />
+            <input id="projZ" value="3" title="Z component index (1-based)" />
+          </div>
+    </div>
+  </div>
+
+      <div class="row">
+        <label>Equation mode</label>
+        <select id="eqMode">
+          <option value="simple" selected>Simple (dx/dy/dz)</option>
+          <option value="vector">Vector (N lines)</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Vector equations (one per line). If not empty, this overrides dx/dy/dz. Variables: x1..xN, t, and params.</label>
+        <textarea id="eqs" placeholder="Example (ODE):&#10;x1' = x2&#10;x2' = -sin(x1) - 0.1*x2&#10;..."></textarea>
+      </div>
+
+      <div id="simple-eqs">
+        <div class="row">
+          <label>dx/dt = F(x,y,z,t,params)</label>
+          <textarea id="dx"></textarea>
+        </div>
+        <div class="row">
+          <label>dy/dt = G(x,y,z,t,params)</label>
+          <textarea id="dy"></textarea>
+        </div>
+        <div class="row">
+          <label>dz/dt = H(x,y,z,t,params)</label>
+          <textarea id="dz"></textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>Parameters (mỗi dòng: name = value)</label>
+        <textarea id="params"></textarea>
+      </div>
+
+      <div class="grid row">
+        <div>
+          <label>Initial (comma-separated, length N)</label>
+          <input id="init" value="0.1, 0.1, 0.1" />
+        </div>
+      </div>
+    </div>
+
+    <div id="section-wizards" class="section-title" data-advanced="1">Wizards</div>
+    <div class="section-box" data-advanced="1">
+      <div class="row">
+        <label>Linear system builder (ODE): x' = A x + b</label>
+        <div class="grid">
+          <div>
+            <label>N</label>
+            <input id="axbN" value="3" />
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button id="build-axb" class="secondary">Build Ax+b → Vector eqs</button>
+          </div>
+        </div>
+        <label>Matrix A (N lines, columns separated by comma or space; entries can be numbers or parameter names)</label>
+        <textarea id="axbA" placeholder="Example N=3:&#10;0 1 0&#10;-k -c 0&#10;0 0 -1"></textarea>
+        <label>Vector b (N numbers/expressions, separated by comma or space)</label>
+        <input id="axbB" placeholder="Example: 0, 0, 0" />
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <label>2nd-order scalar wizard (ODE): x'' = f(x, v, t, params)</label>
+        <div class="grid">
+          <div>
+            <label>f(x,v,t)</label>
+            <input id="xdd" placeholder="-k*x - c*v + F*cos(w*t)" />
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button id="build-xdd" class="secondary">Build to N=2 (x1=x, x2=v)</button>
+          </div>
+        </div>
+        <div class="hint">This will set vector equations: <code>x1' = x2</code> and <code>x2' = f</code>. Use <code>x1</code> and <code>x2</code> (or <code>x</code>, <code>y</code> aliases) inside f.</div>
+      </div>
+    </div>
+
+    <div id="section-run" class="section-title">Run</div>
+    <div class="section-box">
+      <div class="grid row">
+        <div id="dt-box">
+          <label id="dt-label">dt</label>
+          <input id="dt" value="0.005" />
+        </div>
+        <div>
+          <label id="steps-label">steps</label>
+          <input id="steps" value="200000" />
+        </div>
+      </div>
+
+      <div class="grid row" id="ode-row">
+        <div>
+          <label>Solver (ODE only)</label>
+          <select id="solver">
+            <option value="rk4" selected>RK4 (fixed step)</option>
+            <option value="euler">Euler (fixed step)</option>
+            <option value="dp45">Dormand–Prince RK45 (adaptive)</option>
+            <option value="rkf45">Fehlberg RKF45 (adaptive)</option>
+            <option value="bs23">Bogacki–Shampine RK23 (adaptive)</option>
+            <option value="ck45">Cash–Karp CK45 (adaptive)</option>
+          </select>
+        </div>
+        <div class="hint" style="margin-top:22px;">
+          Map ignores dt/solver (uses iterations). SDE uses Euler–Maruyama.
+        </div>
+      </div>
+
+      <div class="grid row" id="sde-row" style="display:none;">
+        <div>
+          <label>sigma (SDE noise)</label>
+          <input id="sigma" value="0.0" />
+        </div>
+        <div>
+          <label>Note</label>
+          <input value="x += f*dt + sigma*sqrt(dt)*N(0,1)" disabled />
+        </div>
+      </div>
+
+      <div class="grid row" id="adaptive-row-1">
+        <div>
+          <label>absTol (adaptive)</label>
+          <input id="absTol" value="1e-6" />
+        </div>
+        <div>
+          <label>relTol (adaptive)</label>
+          <input id="relTol" value="1e-3" />
+        </div>
+      </div>
+
+      <div class="grid row" id="adaptive-row-2">
+        <div>
+          <label>dtMin (adaptive)</label>
+          <input id="dtMin" value="1e-6" />
+        </div>
+        <div>
+          <label>dtMax (adaptive)</label>
+          <input id="dtMax" value="0.05" />
+        </div>
+      </div>
+
+      <div class="grid row" data-advanced="1">
+        <div>
+          <label>Transient (skip)</label>
+          <input id="transient" value="2000" />
+        </div>
+        <div>
+          <label>Points/frame (streaming)</label>
+          <input id="ppf" value="1500" />
+        </div>
+      </div>
+    </div>
+
+    <div class="buttons row">
+      <button id="start">Start</button>
+      <button id="validate" class="secondary">Validate</button>
+      <button id="pause" class="secondary">Pause</button>
+      <button id="reset" class="secondary">Reset</button>
+    </div>
+
+    <div id="main-hint" class="hint">
+      Hỗ trợ biến <b>x,y,z,t</b> và tham số tuỳ ý. Dùng hàm math.js như <code>sin</code>, <code>cos</code>, <code>pow</code>.<br/>
+      Ví dụ Lorenz: <code>dx=sigma*(y-x)</code>, <code>dy=x*(rho-z)-y</code>, <code>dz=x*y-beta*z</code>.
+    </div>
+    <div id="stats" class="hint" style="margin-top:10px;"></div>
+  </div>
+  <button id="open-controls" title="Open controls">Open controls</button>
+
+  <!-- Three.js (ES Modules via import map) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <!-- math.js (UMD) -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@11.12.0/lib/browser/math.js"></script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    (() => {
+      // ---- TODO progress: base/engine/gui/animation all in this file ----
+
+      const errorEl = document.getElementById('error');
+      const noticeEl = document.getElementById('notice');
+      function showError(message) {
+        if (noticeEl) { noticeEl.style.display = 'none'; noticeEl.textContent = ''; }
+        if (!message) {
+          errorEl.style.display = 'none';
+          errorEl.textContent = '';
+          return;
+        }
+        errorEl.style.display = 'block';
+        errorEl.textContent = message;
+      }
+      function showNotice(message) {
+        if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+        if (!noticeEl) return;
+        if (!message) { noticeEl.style.display = 'none'; noticeEl.textContent = ''; return; }
+        noticeEl.style.display = 'block';
+        noticeEl.textContent = message;
+        window.setTimeout(() => {
+          if (noticeEl.textContent === message) {
+            noticeEl.style.display = 'none';
+            noticeEl.textContent = '';
+          }
+        }, 2200);
+      }
+
+      const appEl = document.getElementById('app');
+
+      // ---- Three.js base ----
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 2000);
+      camera.position.set(2.8, 1.9, 3.2);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      appEl.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.zoomSpeed = 0.9;
+      controls.rotateSpeed = 0.7;
+      controls.panSpeed = 0.7;
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.35);
+      scene.add(ambient);
+      const dir = new THREE.DirectionalLight(0xffffff, 0.55);
+      dir.position.set(3, 4, 2);
+      scene.add(dir);
+
+      const axes = new THREE.AxesHelper(1.25);
+      axes.visible = true;
+      scene.add(axes);
+
+      // =====================================================================
+      // UI (inputs), Parser (math.js), Solver (Euler/RK4), Renderer (Three.js)
+      // =====================================================================
+
+      // ---- UI refs ----
+      const ui = {
+        panel: document.getElementById('ui-panel'),
+        openControls: document.getElementById('open-controls'),
+        closeControls: document.getElementById('close-controls'),
+        toggleAdvanced: document.getElementById('toggle-advanced'),
+        panelTitle: document.getElementById('panel-title'),
+        sectionModel: document.getElementById('section-model'),
+        sectionWizards: document.getElementById('section-wizards'),
+        sectionRun: document.getElementById('section-run'),
+        mainHint: document.getElementById('main-hint'),
+        stats: document.getElementById('stats'),
+        preset: document.getElementById('preset'),
+        presetSearch: document.getElementById('presetSearch'),
+        saveCustom: document.getElementById('save-custom'),
+        deleteSaved: document.getElementById('delete-saved'),
+        systemType: document.getElementById('systemType'),
+        dtBox: document.getElementById('dt-box'),
+        dtLabel: document.getElementById('dt-label'),
+        stepsLabel: document.getElementById('steps-label'),
+        odeRow: document.getElementById('ode-row'),
+        adaptiveRow1: document.getElementById('adaptive-row-1'),
+        adaptiveRow2: document.getElementById('adaptive-row-2'),
+        sdeRow: document.getElementById('sde-row'),
+        sigma: document.getElementById('sigma'),
+        dim: document.getElementById('dim'),
+        dimAuto: document.getElementById('dimAuto'),
+        dimLabel: document.getElementById('dim-label'),
+        dimAutoLabel: document.getElementById('dim-auto-label'),
+        projX: document.getElementById('projX'),
+        projY: document.getElementById('projY'),
+        projZ: document.getElementById('projZ'),
+        eqMode: document.getElementById('eqMode'),
+        eqs: document.getElementById('eqs'),
+        simpleEqs: document.getElementById('simple-eqs'),
+        dx: document.getElementById('dx'),
+        dy: document.getElementById('dy'),
+        dz: document.getElementById('dz'),
+        params: document.getElementById('params'),
+        init: document.getElementById('init'),
+        dt: document.getElementById('dt'),
+        absTol: document.getElementById('absTol'),
+        relTol: document.getElementById('relTol'),
+        dtMin: document.getElementById('dtMin'),
+        dtMax: document.getElementById('dtMax'),
+        steps: document.getElementById('steps'),
+        transient: document.getElementById('transient'),
+        solver: document.getElementById('solver'),
+        ppf: document.getElementById('ppf'),
+        start: document.getElementById('start'),
+        validate: document.getElementById('validate'),
+        pause: document.getElementById('pause'),
+        reset: document.getElementById('reset'),
+        exportBtn: null,
+        axbN: document.getElementById('axbN'),
+        axbA: document.getElementById('axbA'),
+        axbB: document.getElementById('axbB'),
+        buildAxB: document.getElementById('build-axb'),
+        xdd: document.getElementById('xdd'),
+        buildXdd: document.getElementById('build-xdd'),
+      };
+
+      // ---- Right settings panel (no dat.gui) ----
+      const settings = {
+        panel: document.getElementById('settings-panel'),
+        title: document.getElementById('settings-title'),
+        close: document.getElementById('settings-close'),
+        openBtn: document.getElementById('open-settings'),
+        langLabel: document.getElementById('settings-lang-label'),
+        langSelect: document.getElementById('settings-language'),
+        axesLabel: document.getElementById('settings-axes-label'),
+        axesSelect: document.getElementById('settings-axes'),
+        modeLabel: document.getElementById('settings-mode-label'),
+        modeSelect: document.getElementById('settings-mode'),
+        pointSizeLabel: document.getElementById('settings-pointsize-label'),
+        pointSize: document.getElementById('settings-pointsize'),
+        pointSizeNum: document.getElementById('settings-pointsize-num'),
+        resetView: document.getElementById('settings-resetview'),
+      };
+      const SETTINGS_OPEN_KEY = 'sim_settings_open';
+      function setSettingsOpen(open) {
+        const isOpen = !!open;
+        settings.panel?.classList.toggle('is-hidden', !isOpen);
+        if (settings.openBtn) settings.openBtn.style.display = isOpen ? 'none' : 'inline-block';
+        try { localStorage.setItem(SETTINGS_OPEN_KEY, isOpen ? '1' : '0'); } catch (_) {}
+      }
+      function getSettingsOpenDefault() {
+        try {
+          const v = localStorage.getItem(SETTINGS_OPEN_KEY);
+          if (v === '0') return false;
+          if (v === '1') return true;
+        } catch (_) {}
+        return true;
+      }
+      setSettingsOpen(getSettingsOpenDefault());
+      settings.close?.addEventListener('click', () => setSettingsOpen(false));
+      settings.openBtn?.addEventListener('click', () => setSettingsOpen(true));
+
+      // ---- Language (i18n) ----
+      const UI_LANG_KEY = 'sim_ui_lang';
+      const I18N = {
+        vi: {
+          panelTitle: 'Bảng điều khiển mô phỏng 3D',
+          openControls: 'Mở điều khiển',
+          advanced: 'Nâng cao',
+          basic: 'Cơ bản',
+          sectionModel: 'Mô hình',
+          sectionWizards: 'Trợ lý nhập nhanh',
+          sectionRun: 'Chạy mô phỏng',
+          systemCategory: 'Phân loại hệ',
+          preset: 'Preset',
+          presetSearch: 'Tìm preset',
+          eqMode: 'Chế độ nhập',
+          eqModeSimple: 'Đơn giản (dx/dy/dz)',
+          eqModeVector: 'Vector (N dòng)',
+          vectorEqs: 'Phương trình vector (mỗi dòng 1 phương trình). Biến: x1..xN, t, và params.',
+          dx: 'dx/dt = F(x,y,z,t,params)',
+          dy: 'dy/dt = G(x,y,z,t,params)',
+          dz: 'dz/dt = H(x,y,z,t,params)',
+          params: 'Tham số (mỗi dòng: name = value)',
+          init: 'Điều kiện đầu (cách nhau bởi dấu phẩy, độ dài N)',
+          dt: 'dt',
+          dtSde: 'dt (SDE)',
+          dtParam: 'Bước t',
+          steps: 'Số bước',
+          iterations: 'Số vòng lặp',
+          samples: 'Số mẫu',
+          solverOde: 'Solver (chỉ ODE)',
+          sigma: 'sigma (nhiễu SDE)',
+          note: 'Ghi chú',
+          absTol: 'absTol (adaptive)',
+          relTol: 'relTol (adaptive)',
+          dtMin: 'dtMin (adaptive)',
+          dtMax: 'dtMax (adaptive)',
+          transient: 'Bỏ qua (transient)',
+          ppf: 'Điểm/frame (streaming)',
+          start: 'Chạy',
+          validate: 'Kiểm tra',
+          pause: 'Tạm dừng',
+          resume: 'Tiếp tục',
+          reset: 'Đặt lại',
+          export: 'Xuất PNG',
+          hint: 'Hỗ trợ biến x,y,z,t và tham số tuỳ ý. Dùng hàm math.js như sin, cos, pow. Ví dụ Lorenz: dx=sigma*(y-x), dy=x*(rho-z)-y, dz=x*y-beta*z.',
+          langName: 'Ngôn ngữ',
+          systemOptions: {
+            algebraic: 'Hệ đại số (Algebraic)',
+            ode_linear: 'ODE – Tuyến tính',
+            ode_nonlinear: 'ODE – Phi tuyến',
+            map: 'Hệ sai phân (Discrete Map)',
+            pde_linear: 'PDE – Tuyến tính (sắp có)',
+            pde_nonlinear: 'PDE – Phi tuyến (sắp có)',
+            dae: 'DAE (sắp có)',
+            stochastic: 'Hệ ngẫu nhiên (SDE)',
+            hybrid: 'Hybrid (sắp có)',
+            hamilton: 'Hamilton/Lagrange (sắp có)',
+            optimization: 'Tối ưu / Gradient Flow (sắp có)',
+            markov: 'Markov / Xác suất (sắp có)',
+          },
+          wizardAxB: "Trợ lý hệ tuyến tính (ODE): x' = A x + b",
+          wizardBuildAxB: 'Tạo Ax+b → Eq vector',
+          wizardA: 'Ma trận A (N dòng; cột cách nhau bởi dấu phẩy hoặc khoảng trắng)',
+          wizardB: 'Vector b (N phần tử; cách nhau bởi dấu phẩy hoặc khoảng trắng)',
+          wizardXdd: "Trợ lý bậc 2 (ODE): x'' = f(x, v, t, params)",
+          wizardBuildXdd: 'Tạo N=2 (x1=x, x2=v)',
+        },
+        en: {
+          panelTitle: '3D Simulator Controller',
+          openControls: 'Open controls',
+          advanced: 'Advanced',
+          basic: 'Basic',
+          sectionModel: 'Model',
+          sectionWizards: 'Wizards',
+          sectionRun: 'Run',
+          systemCategory: 'System category',
+          preset: 'Preset',
+          presetSearch: 'Search presets',
+          eqMode: 'Equation mode',
+          eqModeSimple: 'Simple (dx/dy/dz)',
+          eqModeVector: 'Vector (N lines)',
+          vectorEqs: 'Vector equations (one per line). Variables: x1..xN, t, and params.',
+          dx: 'dx/dt = F(x,y,z,t,params)',
+          dy: 'dy/dt = G(x,y,z,t,params)',
+          dz: 'dz/dt = H(x,y,z,t,params)',
+          params: 'Parameters (one per line: name = value)',
+          init: 'Initial (comma-separated, length N)',
+          dt: 'dt',
+          dtSde: 'dt (SDE)',
+          dtParam: 't step',
+          steps: 'steps',
+          iterations: 'iterations',
+          samples: 'samples',
+          solverOde: 'Solver (ODE only)',
+          sigma: 'sigma (SDE noise)',
+          note: 'Note',
+          absTol: 'absTol (adaptive)',
+          relTol: 'relTol (adaptive)',
+          dtMin: 'dtMin (adaptive)',
+          dtMax: 'dtMax (adaptive)',
+          transient: 'Transient (skip)',
+          ppf: 'Points/frame (streaming)',
+          start: 'Start',
+          validate: 'Validate',
+          pause: 'Pause',
+          resume: 'Resume',
+          reset: 'Reset',
+          export: 'Export PNG',
+          hint: 'Supports variables x,y,z,t and arbitrary parameters. Use math.js functions like sin, cos, pow. Lorenz example: dx=sigma*(y-x), dy=x*(rho-z)-y, dz=x*y-beta*z.',
+          langName: 'Language',
+          systemOptions: {
+            algebraic: 'Algebraic System',
+            ode_linear: 'ODE – Linear',
+            ode_nonlinear: 'ODE – Nonlinear',
+            map: 'Discrete Map',
+            pde_linear: 'PDE – Linear (coming soon)',
+            pde_nonlinear: 'PDE – Nonlinear (coming soon)',
+            dae: 'DAE System (coming soon)',
+            stochastic: 'Stochastic System (SDE)',
+            hybrid: 'Hybrid System (coming soon)',
+            hamilton: 'Hamilton/Lagrange (coming soon)',
+            optimization: 'Optimization / Gradient Flow (coming soon)',
+            markov: 'Markov / Probabilistic System (coming soon)',
+          },
+          wizardAxB: "Linear system builder (ODE): x' = A x + b",
+          wizardBuildAxB: 'Build Ax+b → Vector eqs',
+          wizardA: 'Matrix A (N lines; columns separated by comma or space)',
+          wizardB: 'Vector b (N elements; separated by comma or space)',
+          wizardXdd: "2nd-order scalar wizard (ODE): x'' = f(x, v, t, params)",
+          wizardBuildXdd: 'Build to N=2 (x1=x, x2=v)',
+        }
+      };
+
+      function getCurrentLang() {
+        try {
+          const v = localStorage.getItem(UI_LANG_KEY);
+          if (v === 'en' || v === 'vi') return v;
+        } catch (_) {}
+        return 'vi';
+      }
+      function setCurrentLang(lang) {
+        const l = (lang === 'en' || lang === 'vi') ? lang : 'vi';
+        try { localStorage.setItem(UI_LANG_KEY, l); } catch (_) {}
+        applyLanguage(l);
+      }
+      function setLabelForControl(controlEl, text) {
+        if (!controlEl) return;
+        // Prefer the label within the immediate field container (<div><label>..</label><input/></div>)
+        const parent = controlEl.parentElement;
+        const directLabel = parent ? parent.querySelector('label') : null;
+        if (directLabel) {
+          directLabel.textContent = text;
+          return;
+        }
+        // Fallback: previous sibling label
+        const prev = controlEl.previousElementSibling;
+        if (prev && prev.tagName === 'LABEL') {
+          prev.textContent = text;
+          return;
+        }
+        // Last resort: first label in row
+        const row = controlEl.closest('.row');
+        const label = row ? row.querySelector('label') : null;
+        if (label) label.textContent = text;
+      }
+      function setPrevLabel(el, text) {
+        const prev = el?.previousElementSibling;
+        if (prev && prev.tagName === 'LABEL') prev.textContent = text;
+      }
+
+      // Boot-safe running flag (avoid touching runtime before it's initialized)
+      let uiIsRunning = false;
+
+      function applyLanguage(lang) {
+        const d = I18N[lang] || I18N.vi;
+        if (ui.panelTitle) ui.panelTitle.textContent = d.panelTitle;
+        if (ui.openControls) ui.openControls.textContent = d.openControls;
+        if (ui.sectionModel) ui.sectionModel.textContent = d.sectionModel;
+        if (ui.sectionWizards) ui.sectionWizards.textContent = d.sectionWizards;
+        if (ui.sectionRun) ui.sectionRun.textContent = d.sectionRun;
+
+        // Basic/Advanced button text depends on current mode
+        if (ui.toggleAdvanced) ui.toggleAdvanced.textContent = ui.panel.classList.contains('basic') ? d.advanced : d.basic;
+
+        setLabelForControl(ui.systemType, d.systemCategory);
+        setLabelForControl(ui.preset, d.preset);
+        setLabelForControl(ui.presetSearch, d.presetSearch);
+        setLabelForControl(ui.eqMode, d.eqMode);
+        if (ui.dimLabel) ui.dimLabel.textContent = (lang === 'vi') ? 'Số chiều N' : 'Dimension N';
+        if (ui.dimAutoLabel) ui.dimAutoLabel.textContent = (lang === 'vi') ? 'Tự động' : 'Auto';
+
+        // eqMode option labels
+        if (ui.eqMode) {
+          const optSimple = ui.eqMode.querySelector('option[value="simple"]');
+          const optVector = ui.eqMode.querySelector('option[value="vector"]');
+          if (optSimple) optSimple.textContent = d.eqModeSimple;
+          if (optVector) optVector.textContent = d.eqModeVector;
+        }
+
+        // system category option labels
+        if (ui.systemType) {
+          for (const opt of ui.systemType.querySelectorAll('option')) {
+            const v = opt.value;
+            if (d.systemOptions && d.systemOptions[v]) opt.textContent = d.systemOptions[v];
+          }
+        }
+
+        // Vector eq label
+        if (ui.eqs) {
+          const row = ui.eqs.closest('.row');
+          const label = row ? row.querySelector('label') : null;
+          if (label) label.textContent = d.vectorEqs;
+        }
+        setLabelForControl(ui.dx, d.dx);
+        setLabelForControl(ui.dy, d.dy);
+        setLabelForControl(ui.dz, d.dz);
+        setLabelForControl(ui.params, d.params);
+        setLabelForControl(ui.init, d.init);
+
+        // Run labels
+        const category = String(ui.systemType?.value || 'ode_nonlinear');
+        const engine = categoryToEngineType(category) || 'ode';
+        if (ui.dtLabel) ui.dtLabel.textContent = (engine === 'sde') ? d.dtSde : (engine === 'param') ? d.dtParam : d.dt;
+        if (ui.stepsLabel) ui.stepsLabel.textContent = (engine === 'map') ? d.iterations : (engine === 'param') ? d.samples : d.steps;
+
+        // ODE/SDE/adaptive labels
+        if (ui.solver) {
+          const odeLabel = ui.solver.closest('.grid')?.querySelector('label');
+          if (odeLabel) odeLabel.textContent = d.solverOde;
+        }
+        if (ui.sigma) setLabelForControl(ui.sigma, d.sigma);
+        if (ui.sdeRow) {
+          const noteLabel = ui.sdeRow.querySelectorAll('label')[1];
+          if (noteLabel) noteLabel.textContent = d.note;
+        }
+        if (ui.absTol) setLabelForControl(ui.absTol, d.absTol);
+        if (ui.relTol) setLabelForControl(ui.relTol, d.relTol);
+        if (ui.dtMin) setLabelForControl(ui.dtMin, d.dtMin);
+        if (ui.dtMax) setLabelForControl(ui.dtMax, d.dtMax);
+        if (ui.transient) setLabelForControl(ui.transient, d.transient);
+        if (ui.ppf) setLabelForControl(ui.ppf, d.ppf);
+
+        // Buttons
+        if (ui.start) ui.start.textContent = d.start;
+        if (ui.validate) ui.validate.textContent = d.validate;
+        if (ui.pause) ui.pause.textContent = uiIsRunning ? d.pause : d.resume;
+        if (ui.reset) ui.reset.textContent = d.reset;
+        if (ui.exportBtn) ui.exportBtn.textContent = d.export;
+
+        // Wizard labels/buttons (best-effort)
+        if (ui.buildAxB) ui.buildAxB.textContent = d.wizardBuildAxB;
+        if (ui.buildXdd) ui.buildXdd.textContent = d.wizardBuildXdd;
+        // titles are the nearest previous label of the first element in each wizard block
+        if (ui.axbN) {
+          const row = ui.axbN.closest('.row');
+          const firstLabel = row ? row.querySelector('label') : null;
+          if (firstLabel) firstLabel.textContent = d.wizardAxB;
+        }
+        if (ui.axbA) setPrevLabel(ui.axbA, d.wizardA);
+        if (ui.axbB) setPrevLabel(ui.axbB, d.wizardB);
+        if (ui.xdd) {
+          const row = ui.xdd.closest('.row');
+          const firstLabel = row ? row.querySelector('label') : null;
+          if (firstLabel) firstLabel.textContent = d.wizardXdd;
+        }
+
+        if (ui.mainHint) ui.mainHint.textContent = d.hint;
+
+        // Settings panel labels (right)
+        if (settings.title) settings.title.textContent = (lang === 'vi') ? 'Cài đặt' : 'Settings';
+        if (settings.langLabel) settings.langLabel.textContent = d.langName;
+        if (settings.axesLabel) settings.axesLabel.textContent = (lang === 'vi') ? 'Hiện trục' : 'Show axes';
+        if (settings.modeLabel) settings.modeLabel.textContent = (lang === 'vi') ? 'Chế độ vẽ' : 'Render mode';
+        if (settings.pointSizeLabel) settings.pointSizeLabel.textContent = (lang === 'vi') ? 'Kích thước điểm' : 'Point size';
+        if (settings.resetView) settings.resetView.textContent = (lang === 'vi') ? 'Reset góc nhìn' : 'Reset view';
+      }
+
+      // ---- Basic/Advanced ----
+      const UI_ADVANCED_KEY = 'sim_ui_advanced';
+      function setAdvanced(isAdvanced) {
+        const adv = !!isAdvanced;
+        ui.panel.classList.toggle('basic', !adv);
+        const d = I18N[getCurrentLang()] || I18N.vi;
+        if (ui.toggleAdvanced) ui.toggleAdvanced.textContent = adv ? d.basic : d.advanced;
+        try { localStorage.setItem(UI_ADVANCED_KEY, adv ? '1' : '0'); } catch (_) {}
+      }
+      function getAdvancedDefault() {
+        try {
+          const v = localStorage.getItem(UI_ADVANCED_KEY);
+          if (v === '1') return true;
+          if (v === '0') return false;
+        } catch (_) {}
+        return false;
+      }
+      setAdvanced(getAdvancedDefault());
+      ui.toggleAdvanced?.addEventListener('click', () => setAdvanced(ui.panel.classList.contains('basic')));
+      applyLanguage(getCurrentLang());
+
+      function syncEqModeUI() {
+        const mode = String(ui.eqMode?.value || 'simple');
+        const showVector = mode === 'vector';
+        const eqRow = ui.eqs ? ui.eqs.closest('.row') : null;
+        if (eqRow) eqRow.style.display = showVector ? 'block' : 'none';
+        if (ui.simpleEqs) ui.simpleEqs.style.display = showVector ? 'none' : 'block';
+      }
+      ui.eqMode?.addEventListener('change', () => syncEqModeUI());
+      syncEqModeUI();
+
+      // ---- Dimension N (auto) ----
+      let projAuto = true;
+      let lastAutoDim = null;
+      function setProjDefaultsForN(n) {
+        if (!ui.projX || !ui.projY || !ui.projZ) return;
+        ui.projX.value = '1';
+        ui.projY.value = String(Math.min(2, n));
+        ui.projZ.value = String(Math.min(3, n));
+      }
+
+      function countNonEmptyVectorLines(text) {
+        const lines = String(text || '').split(/\r?\n/);
+        let count = 0;
+        for (let i = 0; i < lines.length; i++) {
+          let s = lines[i].trim();
+          if (!s) continue;
+          s = s.replace(/(#|\/\/).*$/, '').trim();
+          if (!s) continue;
+          if (s.includes('=')) {
+            const rhs = s.slice(s.indexOf('=') + 1).trim();
+            if (!rhs) continue;
+          }
+          count++;
+        }
+        return count;
+      }
+
+      function syncDimAuto() {
+        const mode = String(ui.eqMode?.value || 'simple');
+        const n = (mode === 'vector')
+          ? Math.max(1, countNonEmptyVectorLines(ui.eqs?.value || ''))
+          : 3;
+        if (ui.dimAuto?.checked) {
+          if (ui.dim) ui.dim.value = String(n);
+        }
+
+        // Auto projection: if user hasn't overridden, keep a sensible default for current dim.
+        const nEffective = Math.max(1, Math.floor(Number(ui.dim?.value || n)) || n);
+        if (projAuto) {
+          setProjDefaultsForN(nEffective);
+        } else {
+          // If current projection is out of range (e.g., moved from 3D->2D), force reset.
+          const px = Math.floor(Number(ui.projX?.value || 1));
+          const py = Math.floor(Number(ui.projY?.value || 2));
+          const pz = Math.floor(Number(ui.projZ?.value || 3));
+          if (![px, py, pz].every(v => Number.isFinite(v) && v >= 1 && v <= nEffective)) {
+            projAuto = true;
+            setProjDefaultsForN(nEffective);
+          }
+        }
+
+        lastAutoDim = nEffective;
+      }
+
+      ui.eqMode?.addEventListener('change', () => syncDimAuto());
+      ui.eqs?.addEventListener('input', () => syncDimAuto());
+      ui.dimAuto?.addEventListener('change', () => syncDimAuto());
+      ui.dim?.addEventListener('input', () => {
+        // If user types N manually, disable auto
+        if (ui.dimAuto) ui.dimAuto.checked = false;
+        syncDimAuto();
+      });
+      ui.projX?.addEventListener('input', () => { projAuto = false; });
+      ui.projY?.addEventListener('input', () => { projAuto = false; });
+      ui.projZ?.addEventListener('input', () => { projAuto = false; });
+      syncDimAuto();
+
+      // ---- Run settings cache (Transient + Points/frame) ----
+      const RUN_CACHE_KEY = 'sim_run_cache_v1';
+      function loadRunCache() {
+        try {
+          const raw = localStorage.getItem(RUN_CACHE_KEY);
+          const v = safeJsonParse(raw, {});
+          return (v && typeof v === 'object') ? v : {};
+        } catch (_) {
+          return {};
+        }
+      }
+      function saveRunCache(patch) {
+        const prev = loadRunCache();
+        const next = { ...prev, ...patch };
+        try { localStorage.setItem(RUN_CACHE_KEY, JSON.stringify(next)); } catch (_) {}
+      }
+      // Apply cached values on boot (and keep across preset changes)
+      (() => {
+        const cache = loadRunCache();
+        if (ui.transient && cache.transient != null) ui.transient.value = String(cache.transient);
+        if (ui.ppf && cache.ppf != null) ui.ppf.value = String(cache.ppf);
+      })();
+      ui.transient?.addEventListener('input', () => saveRunCache({ transient: ui.transient.value }));
+      ui.ppf?.addEventListener('input', () => saveRunCache({ ppf: ui.ppf.value }));
+
+      // ---- UI panel open/close ----
+      const UI_PANEL_KEY = 'ode_ui_panel_open';
+      function setPanelOpen(isOpen) {
+        const open = !!isOpen;
+        ui.panel.classList.toggle('is-hidden', !open);
+        ui.openControls.classList.toggle('is-visible', !open);
+        try { localStorage.setItem(UI_PANEL_KEY, open ? '1' : '0'); } catch (_) {}
+      }
+      function getPanelOpenDefault() {
+        try {
+          const v = localStorage.getItem(UI_PANEL_KEY);
+          if (v === '0') return false;
+          if (v === '1') return true;
+        } catch (_) {}
+        return true;
+      }
+      setPanelOpen(getPanelOpenDefault());
+      ui.closeControls.addEventListener('click', () => setPanelOpen(false));
+      ui.openControls.addEventListener('click', () => setPanelOpen(true));
+
+      // ---- Presets (ODE attractors) ----
+      const builtinPresets = {
+        'Lorenz (1963) — Edward Lorenz / “butterfly”': {
+          dx: 'sigma*(y-x)',
+          dy: 'x*(rho-z)-y',
+          dz: 'x*y-beta*z',
+          params: 'sigma=10\nrho=28\nbeta=8/3',
+          init: '0.1, 0.1, 0.1',
+          dt: '0.005',
+          steps: '200000',
+          transient: '2000',
+        },
+        'Linear ODE — damped oscillator (2D)': {
+          // x1' = x2
+          // x2' = -w^2 x1 - c x2
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '2',
+          projX: '1',
+          projY: '2',
+          projZ: '2',
+          eqs: "x1' = x2\nx2' = -w*w*x1 - c*x2",
+          params: 'w=1\nc=0.08',
+          init: '1, 0',
+          dt: '0.01',
+          solver: 'dp45',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '120000',
+          transient: '0',
+        },
+        'Lü (Lu) System (2002) — Lü & Chen': {
+          // Lü system (2002):
+          // xdot = a(y - x)
+          // ydot = -x z + c y
+          // zdot = x y - b z
+          dx: 'a*(y-x)',
+          dy: '-x*z + c*y',
+          dz: 'x*y - b*z',
+          params: 'a=36\nb=3\nc=20',
+          init: '0.1, 0.1, 0.1',
+          dt: '0.003',
+          steps: '240000',
+          transient: '2500',
+        },
+        'Rössler (1976) — Otto Rössler': {
+          dx: '-y - z',
+          dy: 'x + a*y',
+          dz: 'b + z*(x - c)',
+          params: 'a=0.2\nb=0.2\nc=5.7',
+          init: '0.1, 0, 0',
+          dt: '0.01',
+          steps: '160000',
+          transient: '1500',
+        },
+        'Chen (1999) — Chen & Ueta': {
+          dx: 'a*(y-x)',
+          dy: '(c-a)*x - x*z + c*y',
+          dz: 'x*y - b*z',
+          params: 'a=35\nb=3\nc=28',
+          init: '0.1, 0.1, 0.1',
+          dt: '0.005',
+          steps: '220000',
+          transient: '2500',
+        },
+        'Halvorsen (1996) — Halvorsen attractor': {
+          dx: '-a*x - 4*y - 4*z - y*y',
+          dy: '-a*y - 4*z - 4*x - z*z',
+          dz: '-a*z - 4*x - 4*y - x*x',
+          params: 'a=1.4',
+          init: '1, 0, 0',
+          dt: '0.004',
+          steps: '220000',
+          transient: '3000',
+        },
+        'Chua Circuit (1986) — double scroll (Leon O. Chua)': {
+          // Chua double-scroll (normalized form):
+          // xdot = alpha (y - x - f(x))
+          // ydot = x - y + z
+          // zdot = -beta y
+          // f(x) = m1*x + 0.5*(m0-m1)*(abs(x+1)-abs(x-1))
+          dx: 'alpha*(y - x - (m1*x + 0.5*(m0-m1)*(abs(x+1)-abs(x-1))))',
+          dy: 'x - y + z',
+          dz: '-beta*y',
+          params: 'alpha=15.6\nbeta=28\nm0=-1.143\nm1=-0.714',
+          init: '0.1, 0, 0',
+          dt: '0.004',
+          steps: '260000',
+          transient: '4000',
+        },
+        'Qi (2005) — Qi et al. (yz coupling)': {
+          // A commonly cited Qi-system form (with yz term):
+          // xdot = a (y - x) + y z
+          // ydot = b x - y - x z
+          // zdot = -c z + x y
+          dx: 'a*(y-x) + y*z',
+          dy: 'b*x - y - x*z',
+          dz: '-c*z + x*y',
+          params: 'a=35\nb=80\nc=8/3',
+          init: '0.1, 0.0, 0.1',
+          dt: '0.002',
+          steps: '280000',
+          transient: '5000',
+        },
+        'Rabinovich–Fabrikant (1979) — RF equations': {
+          // xdot = y (z - 1 + x^2) + gamma x
+          // ydot = x (3 z + 1 - x^2) + gamma y
+          // zdot = -2 z (alpha + x y)
+          dx: 'y*(z - 1 + x*x) + gamma*x',
+          dy: 'x*(3*z + 1 - x*x) + gamma*y',
+          dz: '-2*z*(alpha + x*y)',
+          params: 'alpha=0.14\ngamma=0.10',
+          init: '0.1, 0.1, 0.1',
+          dt: '0.002',
+          steps: '300000',
+          transient: '6000',
+        },
+        'Thomas (1999) — cyclically symmetric attractor': {
+          // Thomas cyclically symmetric attractor
+          dx: 'sin(y) - b*x',
+          dy: 'sin(z) - b*y',
+          dz: 'sin(x) - b*z',
+          params: 'b=0.208186',
+          init: '0.1, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '2000',
+        },
+        'Finance — Sornette–Andersen (search: “chaotic finance system”)': {
+          // A 3D nonlinear finance-style system often used in chaotic finance demos:
+          dx: '-a*x + y + z - x*x*x',
+          dy: '-b*y + x*z',
+          dz: '-c*z + x*y',
+          params: 'a=0.1\nb=0.1\nc=14',
+          init: '0.2, 0.1, 0.1',
+          dt: '0.003',
+          steps: '240000',
+          transient: '4000',
+        },
+        'Henon map (Hénon 1976) — discrete-time': {
+          // Classic Hénon map (2D):
+          // x_{n+1} = 1 - a x_n^2 + y_n
+          // y_{n+1} = b x_n
+          // z_{n+1} = 0
+          systemType: 'map',
+          dx: '1 - a*x*x + y',
+          dy: 'b*x',
+          dz: '0',
+          params: 'a=1.4\nb=0.3',
+          init: '0, 0, 0',
+          dt: '1',
+          steps: '200000',
+          transient: '100',
+        },
+        'Ikeda map (Ikeda 1979) — discrete-time': {
+          // Ikeda map (2D) with parameter u:
+          // t = 0.4 - 6/(1 + x^2 + y^2)
+          // x_{n+1} = 1 + u (x cos t - y sin t)
+          // y_{n+1} = u (x sin t + y cos t)
+          // z_{n+1} = 0
+          systemType: 'map',
+          dx: '1 + u*(x*cos(0.4 - 6/(1 + x*x + y*y)) - y*sin(0.4 - 6/(1 + x*x + y*y)))',
+          dy: 'u*(x*sin(0.4 - 6/(1 + x*x + y*y)) + y*cos(0.4 - 6/(1 + x*x + y*y)))',
+          dz: '0',
+          params: 'u=0.9',
+          init: '0.1, 0, 0',
+          dt: '1',
+          steps: '220000',
+          transient: '200',
+        },
+        'Noisy Lorenz (SDE) — Lorenz + Gaussian noise': {
+          // SDE mode: x += f*dt + sigma*sqrt(dt)*N(0,1)
+          systemType: 'sde',
+          sigma: '0.8',
+          dx: 'sigmaL*(y-x)',
+          dy: 'x*(rho-z)-y',
+          dz: 'x*y-beta*z',
+          params: 'sigmaL=10\nrho=28\nbeta=8/3',
+          init: '0.1, 0.1, 0.1',
+          dt: '0.003',
+          steps: '200000',
+          transient: '2000',
+        },
+        'Parametric: x=y line': {
+          // x(t)=t, y(t)=t, z(t)=0
+          systemType: 'param',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: 'x1 = t\nx2 = t\nx3 = 0',
+          params: '',
+          init: '0, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Parametric: helix': {
+          // x(t)=cos(t), y(t)=sin(t), z(t)=0.05*t
+          systemType: 'param',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: 'x1 = cos(t)\nx2 = sin(t)\nx3 = 0.05*t',
+          params: '',
+          init: '0, 0, 0',
+          dt: '0.02',
+          steps: '120000',
+          transient: '0',
+        },
+        'Sprott (1994) — simple chaotic flow #1 (J.C. Sprott)': {
+          // Example Sprott simple chaotic flow:
+          // xdot = y + z
+          // ydot = -x + a y
+          // zdot = x^2 - z
+          dx: 'y + z',
+          dy: '-x + a*y',
+          dz: 'x*x - z',
+          params: 'a=0.2',
+          init: '0.1, 0, 0',
+          dt: '0.01',
+          steps: '180000',
+          transient: '2000',
+        },
+        'Sprott (1994) — simple chaotic flow #2 (J.C. Sprott)': {
+          // Another Sprott-type simple flow:
+          // xdot = y
+          // ydot = z
+          // zdot = -A z + y^2 - x
+          dx: 'y',
+          dy: 'z',
+          dz: '-A*z + y*y - x',
+          params: 'A=2.017',
+          init: '0.1, 0, 0',
+          dt: '0.01',
+          steps: '180000',
+          transient: '2000',
+        },
+        'Dequan Li (2007) — Li 3-scroll attractor': {
+          // Commonly cited Li 3-scroll form:
+          // xdot = a(y-x) + d x z
+          // ydot = k x + f y - x z
+          // zdot = -e x^2 + x y + c z
+          dx: 'a*(y-x) + d*x*z',
+          dy: 'k*x + f*y - x*z',
+          dz: '-e*x^2 + x*y + c*z',
+          params: 'a=40\nd=0.16\nk=55\nf=20\ne=0.65\nc=11/6',
+          init: '2, 2, 2',
+          dt: '0.0025',
+          steps: '260000',
+          transient: '4000',
+        },
+        'Custom': {
+          dx: 'sigma*(y-x)',
+          dy: 'x*(rho-z)-y',
+          dz: 'x*y-beta*z',
+          params: 'sigma=10\nrho=28\nbeta=8/3',
+          init: '0.1, 0.1, 0.1',
+          dt: '0.005',
+          systemType: 'ode',
+          sigma: '0',
+          steps: '200000',
+          transient: '2000',
+        },
+      };
+
+      // ---- Saved presets (localStorage) ----
+      const CUSTOM_PRESET_KEY = 'Custom';
+      const SAVED_PREFIX = 'Saved: ';
+      const SAVED_PRESETS_KEY = 'ode_saved_presets_v1';
+      const DEFAULT_PRESET_KEY = 'Lorenz (1963) — Edward Lorenz / “butterfly”';
+      const DEFAULT_PRESET_BY_TYPE = {
+        algebraic: 'Parametric: x=y line',
+        ode_linear: 'Linear ODE — damped oscillator (2D)',
+        ode_nonlinear: DEFAULT_PRESET_KEY,
+        map: 'Henon map (Hénon 1976) — discrete-time',
+        stochastic: 'Noisy Lorenz (SDE) — Lorenz + Gaussian noise',
+      };
+
+      function categoryToEngineType(category) {
+        const c = String(category || '').trim();
+        if (c === 'map') return 'map';
+        if (c === 'stochastic') return 'sde';
+        if (c === 'algebraic') return 'param'; // currently: explicit parametric curve sampling
+        if (c === 'ode_linear' || c === 'ode_nonlinear') return 'ode';
+        return null; // not implemented yet
+      }
+
+      function engineTypeToDefaultCategory(engineType) {
+        const t = String(engineType || '').trim();
+        if (t === 'map') return 'map';
+        if (t === 'sde') return 'stochastic';
+        if (t === 'param') return 'algebraic';
+        return 'ode_nonlinear';
+      }
+
+      function getPresetCategory(presetObj) {
+        // Prefer explicit category; otherwise infer from legacy engine-type field
+        const c = String(presetObj?.category || '').trim();
+        if (c) return c;
+        const t = String(presetObj?.systemType || '').trim();
+        return engineTypeToDefaultCategory(t);
+      }
+
+      function safeJsonParse(s, fallback) {
+        try { return JSON.parse(s); } catch (_) { return fallback; }
+      }
+
+      function loadSavedPresetsArray() {
+        try {
+          const raw = localStorage.getItem(SAVED_PRESETS_KEY);
+          const arr = safeJsonParse(raw, []);
+          return Array.isArray(arr) ? arr : [];
+        } catch (_) {
+          return [];
+        }
+      }
+
+      function saveSavedPresetsArray(arr) {
+        try { localStorage.setItem(SAVED_PRESETS_KEY, JSON.stringify(arr)); } catch (_) {}
+      }
+
+      function sanitizeSavedName(name) {
+        const s = String(name || '').trim();
+        // Keep it short and safe for <option> text/value.
+        return s.replace(/\s+/g, ' ').slice(0, 80);
+      }
+
+      function buildSavedPresetMap() {
+        const out = {};
+        const saved = loadSavedPresetsArray();
+        for (const item of saved) {
+          if (!item || typeof item !== 'object') continue;
+          const nm = sanitizeSavedName(item.name);
+          if (!nm) continue;
+          const key = SAVED_PREFIX + nm;
+          const category = String(item.category ?? '');
+          const systemType = String(item.systemType ?? '');
+          out[key] = {
+            category,
+            dx: String(item.dx ?? ''),
+            dy: String(item.dy ?? ''),
+            dz: String(item.dz ?? ''),
+            eqs: String(item.eqs ?? ''),
+            params: String(item.params ?? ''),
+            init: String(item.init ?? ''),
+            dt: String(item.dt ?? ''),
+            absTol: String(item.absTol ?? ''),
+            relTol: String(item.relTol ?? ''),
+            dtMin: String(item.dtMin ?? ''),
+            dtMax: String(item.dtMax ?? ''),
+            steps: String(item.steps ?? ''),
+            solver: String(item.solver ?? ''),
+            systemType,
+            sigma: String(item.sigma ?? ''),
+            dim: String(item.dim ?? ''),
+            projX: String(item.projX ?? ''),
+            projY: String(item.projY ?? ''),
+            projZ: String(item.projZ ?? ''),
+          };
+        }
+        return out;
+      }
+
+      let presets = {};
+
+      function normalizePreset(p) {
+        // Remove run-cache fields from presets so they don't override user run settings.
+        if (!p || typeof p !== 'object') return p;
+        const out = { ...p };
+        delete out.transient;
+        delete out.ppf;
+        return out;
+      }
+
+      function populatePresetDropdown(selectedKey) {
+        const prev = selectedKey || ui.preset.value;
+        const q = String(ui.presetSearch?.value || '').trim().toLowerCase();
+        const wantCategory = String(ui.systemType?.value || 'ode_nonlinear');
+        ui.preset.innerHTML = '';
+        for (const name of Object.keys(presets)) {
+          // Filter by current system type (keep Custom always available)
+          if (name !== CUSTOM_PRESET_KEY) {
+            const pc = getPresetCategory(presets[name]);
+            if (pc !== wantCategory) continue;
+          }
+          if (q && !name.toLowerCase().includes(q)) continue;
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          ui.preset.appendChild(opt);
+        }
+        // Restore selection if still visible; otherwise pick the first visible option.
+        const hasPrev = !!(prev && presets[prev] && Array.from(ui.preset.options).some(o => o.value === prev));
+        if (hasPrev) ui.preset.value = prev;
+        else {
+          const def = DEFAULT_PRESET_BY_TYPE[wantCategory] || DEFAULT_PRESET_KEY;
+          if (presets[def] && Array.from(ui.preset.options).some(o => o.value === def)) ui.preset.value = def;
+          else ui.preset.value = ui.preset.options[0]?.value || '';
+        }
+      }
+
+      function rebuildPresets(selectedKey) {
+        const savedMap = buildSavedPresetMap();
+        // Builtins first, then saved
+        const merged = { ...builtinPresets, ...savedMap };
+        // Normalize (strip transient/ppf) without editing the big builtinPresets literal.
+        presets = {};
+        for (const [k, v] of Object.entries(merged)) presets[k] = normalizePreset(v);
+        populatePresetDropdown(selectedKey);
+      }
+
+      function setPreset(name) {
+        const p = presets[name];
+        if (!p) return;
+        // Projection defaults: presets may set projX/Y/Z; otherwise auto-reset based on dim.
+        const hasProj = (p.projX != null || p.projY != null || p.projZ != null);
+        projAuto = !hasProj;
+        if (p.projX != null && ui.projX) ui.projX.value = p.projX;
+        if (p.projY != null && ui.projY) ui.projY.value = p.projY;
+        if (p.projZ != null && ui.projZ) ui.projZ.value = p.projZ;
+        if (p.eqs != null && ui.eqs) ui.eqs.value = p.eqs;
+        ui.dx.value = p.dx;
+        ui.dy.value = p.dy;
+        ui.dz.value = p.dz;
+        ui.params.value = p.params;
+        ui.init.value = p.init;
+        ui.dt.value = p.dt;
+        if (p.absTol != null && ui.absTol) ui.absTol.value = p.absTol;
+        if (p.relTol != null && ui.relTol) ui.relTol.value = p.relTol;
+        if (p.dtMin != null && ui.dtMin) ui.dtMin.value = p.dtMin;
+        if (p.dtMax != null && ui.dtMax) ui.dtMax.value = p.dtMax;
+        ui.steps.value = p.steps;
+        if (p.solver && ui.solver) ui.solver.value = p.solver;
+        if (ui.systemType) ui.systemType.value = getPresetCategory(p);
+        if (p.sigma != null && ui.sigma) ui.sigma.value = p.sigma;
+        // If preset provides vector equations, prefer vector mode
+        if (ui.eqMode) {
+          const hasVec = !!(p.eqs && String(p.eqs).trim());
+          ui.eqMode.value = hasVec ? 'vector' : 'simple';
+        }
+        syncEqModeUI();
+        syncDimAuto();
+        syncSystemTypeUI();
+      }
+
+      function updatePresetButtons() {
+        const selected = ui.preset.value;
+        const isCustom = selected === CUSTOM_PRESET_KEY;
+        const isSaved = selected.startsWith(SAVED_PREFIX);
+        ui.saveCustom.disabled = !isCustom;
+        ui.deleteSaved.style.display = isSaved ? 'inline-block' : 'none';
+      }
+
+      function getCurrentCustomDraft() {
+        const category = ui.systemType?.value ?? 'ode_nonlinear';
+        return {
+          category,
+          systemType: categoryToEngineType(category) || 'ode',
+          dim: ui.dim?.value ?? '3',
+          projX: ui.projX?.value ?? '1',
+          projY: ui.projY?.value ?? '2',
+          projZ: ui.projZ?.value ?? '3',
+          eqs: ui.eqs?.value ?? '',
+          dx: ui.dx.value,
+          dy: ui.dy.value,
+          dz: ui.dz.value,
+          params: ui.params.value,
+          init: ui.init.value,
+          dt: ui.dt.value,
+          sigma: ui.sigma?.value ?? '0',
+          absTol: ui.absTol?.value ?? '',
+          relTol: ui.relTol?.value ?? '',
+          dtMin: ui.dtMin?.value ?? '',
+          dtMax: ui.dtMax?.value ?? '',
+          steps: ui.steps.value,
+          solver: ui.solver.value,
+        };
+      }
+
+      function saveCurrentCustomToLocalStorage() {
+        if (ui.preset.value !== CUSTOM_PRESET_KEY) return;
+        const rawName = prompt('Save Custom preset as name:', 'My Preset');
+        const nm = sanitizeSavedName(rawName);
+        if (!nm) return;
+
+        const saved = loadSavedPresetsArray();
+        const draft = getCurrentCustomDraft();
+        const idx = saved.findIndex(p => p && typeof p === 'object' && sanitizeSavedName(p.name) === nm);
+        const record = { name: nm, ...draft, updatedAt: new Date().toISOString() };
+        if (idx >= 0) saved[idx] = record;
+        else saved.push(record);
+        saveSavedPresetsArray(saved);
+
+        const key = SAVED_PREFIX + nm;
+        rebuildPresets(key);
+        setPreset(key);
+        updatePresetButtons();
+      }
+
+      function deleteSelectedSavedPreset() {
+        const selected = ui.preset.value;
+        if (!selected.startsWith(SAVED_PREFIX)) return;
+        const nm = selected.slice(SAVED_PREFIX.length);
+        const ok = confirm(`Delete saved preset "${nm}"?`);
+        if (!ok) return;
+        const saved = loadSavedPresetsArray();
+        const next = saved.filter(p => !(p && typeof p === 'object' && sanitizeSavedName(p.name) === nm));
+        saveSavedPresetsArray(next);
+        rebuildPresets(CUSTOM_PRESET_KEY);
+        setPreset(CUSTOM_PRESET_KEY);
+        updatePresetButtons();
+      }
+
+      // Populate preset dropdown (builtins + saved from localStorage)
+      rebuildPresets(DEFAULT_PRESET_KEY);
+      setPreset(ui.preset.value);
+      updatePresetButtons();
+
+      ui.systemType?.addEventListener('change', () => {
+        // Switching system type changes which presets are visible.
+        populatePresetDropdown(ui.preset.value);
+        setPreset(ui.preset.value);
+        updatePresetButtons();
+        syncSystemTypeUI();
+      });
+
+      ui.preset.addEventListener('change', () => {
+        setPreset(ui.preset.value);
+        updatePresetButtons();
+      });
+      ui.presetSearch?.addEventListener('input', () => {
+        populatePresetDropdown(ui.preset.value);
+        updatePresetButtons();
+      });
+      ui.saveCustom.addEventListener('click', () => saveCurrentCustomToLocalStorage());
+      ui.deleteSaved.addEventListener('click', () => deleteSelectedSavedPreset());
+
+      // ---- Parser ----
+      function parseParams(text) {
+        const out = {};
+        const lines = String(text || '').split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          let line = lines[i].trim();
+          if (!line) continue;
+          // Remove comments
+          line = line.replace(/(#|\/\/).*$/, '').trim();
+          if (!line) continue;
+          const m = line.match(/^([A-Za-z_]\w*)\s*=\s*(.+)$/);
+          if (!m) throw new Error(`Params line ${i + 1}: expected "name = value" but got "${lines[i]}"`);
+          const key = m[1];
+          const expr = m[2];
+          const v = math.evaluate(expr, { ...out, pi: Math.PI, e: Math.E });
+          if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(`Param "${key}" is not a finite number.`);
+          out[key] = v;
+        }
+        return out;
+      }
+
+      function parseInit(text) {
+        const parts = String(text || '').split(',').map(s => s.trim()).filter(Boolean);
+        // N-dim: allow fewer values (pad 0) or more (truncate)
+        const n = Math.max(1, parseIntStrict(ui.dim?.value ?? '3', 'Dimension N'));
+        const out = new Float64Array(n);
+        for (let i = 0; i < n; i++) {
+          const v = (i < parts.length) ? Number(parts[i]) : 0;
+          if (!Number.isFinite(v)) throw new Error('Initial values must be numbers.');
+          out[i] = v;
+        }
+        return out;
+      }
+
+      function parseIntStrict(text, label) {
+        const v = Number(String(text || '').trim());
+        if (!Number.isFinite(v)) throw new Error(`${label} is not a number.`);
+        const n = Math.floor(v);
+        return n;
+      }
+
+      function parseFloatStrict(text, label) {
+        const v = Number(String(text || '').trim());
+        if (!Number.isFinite(v)) throw new Error(`${label} is not a number.`);
+        return v;
+      }
+
+      function compileSystemEquations() {
+        const n = Math.max(1, parseIntStrict(ui.dim?.value ?? '3', 'Dimension N'));
+
+        const stripPrefix = (line) => {
+          let s = String(line || '').trim();
+          s = s.replace(/(#|\/\/).*$/, '').trim();
+          if (!s) return '';
+          // If user writes "x1' = ..." or "dx/dt = ..." take RHS
+          const eqIdx = s.indexOf('=');
+          if (eqIdx >= 0) {
+            // IMPORTANT: once we take RHS, do NOT strip leading variables (e.g., "x2")
+            // otherwise lines like "x1' = x2" would become empty.
+            s = s.slice(eqIdx + 1).trim();
+            return s;
+          }
+          // Also remove leading "d.../dt" patterns if they didn't include '=' (e.g., "dx/dt sigma*(y-x)")
+          // IMPORTANT: do NOT strip plain leading variables like "x*(...)".
+          s = s.replace(/^d\s*(x\d+|x|y|z)\s*(\/dt)?\s*/i, '').trim();
+          return s;
+        };
+
+        const eqMode = String(ui.eqMode?.value || 'simple');
+        const vecText = (eqMode === 'vector') ? String(ui.eqs?.value || '').trim() : '';
+        const compiled = [];
+
+        if (vecText) {
+          const lines = vecText.split(/\r?\n/).map(stripPrefix).filter(Boolean);
+          if (lines.length < n) throw new Error(`Vector equations need at least ${n} non-empty lines.`);
+          for (let i = 0; i < n; i++) compiled.push(math.compile(lines[i]));
+          return { n, compiled };
+        }
+
+        // Backward-compat: use dx/dy/dz for N=3; for N>3 pad zeros.
+        const dx = stripPrefix(ui.dx.value);
+        const dy = (n >= 2) ? stripPrefix(ui.dy.value) : '0';
+        const dz = (n >= 3) ? stripPrefix(ui.dz.value) : '0';
+        if (!dx) throw new Error('dx must not be empty (or provide vector equations).');
+        if (n >= 2 && !dy) throw new Error('dy must not be empty (or provide vector equations).');
+        if (n >= 3 && !dz) throw new Error('dz must not be empty (or provide vector equations).');
+        compiled.push(math.compile(dx), math.compile(dy), math.compile(dz));
+        for (let i = 3; i < n; i++) compiled.push(math.compile('0'));
+        return { n, compiled };
+      }
+
+      // ---- Renderer (dynamic BufferGeometry) ----
+      const pathGeometry = new THREE.BufferGeometry();
+      const lineMaterial = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95 });
+      const pointsMaterial = new THREE.PointsMaterial({ size: 0.01, vertexColors: true, sizeAttenuation: true });
+      const pathLine = new THREE.Line(pathGeometry, lineMaterial);
+      const pathPoints = new THREE.Points(pathGeometry, pointsMaterial);
+      pathLine.visible = true;
+      pathPoints.visible = false;
+      scene.add(pathLine);
+      scene.add(pathPoints);
+
+      // ---- Runtime state ----
+      const runtime = {
+        running: false,
+        solver: 'rk4',
+        systemType: 'ode', // 'ode' | 'map' | 'sde'
+        sigma: 0,
+        dim: 3,
+        proj: [0, 1, 2], // 0-based indices into state
+        dt: 0.005, // fixed-step dt OR adaptive initial step size (h0)
+        h: 0.005,  // current adaptive step size
+        dtMin: 1e-6,
+        dtMax: 0.05,
+        absTol: 1e-6,
+        relTol: 1e-3,
+        maxSteps: 200000,
+        transientSteps: 2000,
+        pointsPerFrame: 1500,
+        params: {},
+        compiled: null, // { n, compiled: math.CompiledExpression[] }
+        t: 0,
+        stepIndex: 0,
+        state: new Float64Array(3),
+        lastGood: new Float64Array(3),
+        skippedDerivs: 0,
+        rejectedSteps: 0,
+        // geometry buffers:
+        capacity: 0,
+        count: 0,
+        positions: null,
+        colors: null,
+        scope: { x: 0, y: 0, z: 0, t: 0, pi: Math.PI, e: Math.E },
+      };
+
+      function hslToRgb(h, s, l) {
+        // h in [0,1]
+        let r, g, b;
+        if (s === 0) {
+          r = g = b = l;
+        } else {
+          const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1 / 6) return p + (q - p) * 6 * t;
+            if (t < 1 / 2) return q;
+            if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
+          };
+          const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          const p = 2 * l - q;
+          r = hue2rgb(p, q, h + 1 / 3);
+          g = hue2rgb(p, q, h);
+          b = hue2rgb(p, q, h - 1 / 3);
+        }
+        return [r, g, b];
+      }
+
+      function colorForFraction(f) {
+        // Early = yellow (~55deg), late = red (~0deg)
+        const h = (55 * (1 - f)) / 360;
+        const [r, g, b] = hslToRgb(h, 1, 0.55);
+        return [r, g, b];
+      }
+
+      function resetPathGeometry(capacity) {
+        runtime.capacity = capacity;
+        runtime.count = 0;
+        runtime.positions = new Float32Array(capacity * 3);
+        runtime.colors = new Float32Array(capacity * 3);
+        pathGeometry.setAttribute('position', new THREE.BufferAttribute(runtime.positions, 3));
+        pathGeometry.setAttribute('color', new THREE.BufferAttribute(runtime.colors, 3));
+        pathGeometry.setDrawRange(0, 0);
+        // Bounding volumes will be computed after we have valid points.
+      }
+
+      function resetView() {
+        camera.position.set(2.8, 1.9, 3.2);
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+
+      function setRunning(r) {
+        uiIsRunning = !!r;
+        runtime.running = r;
+        const d = I18N[getCurrentLang()] || I18N.vi;
+        ui.pause.textContent = runtime.running ? d.pause : d.resume;
+      }
+
+      function isFiniteNumber(v) {
+        return typeof v === 'number' && Number.isFinite(v);
+      }
+
+      function isFiniteVec(v) {
+        for (let i = 0; i < v.length; i++) if (!isFiniteNumber(v[i])) return false;
+        return true;
+      }
+
+      function clampIndex1Based(raw, n, fallback1Based) {
+        const k = Math.floor(Number(raw));
+        if (!Number.isFinite(k)) return fallback1Based;
+        const c = Math.max(1, Math.min(n, k));
+        return c;
+      }
+
+      function getProjectedXYZ(out3) {
+        const n = runtime.dim;
+        const px = runtime.proj[0], py = runtime.proj[1], pz = runtime.proj[2];
+        const s = runtime.state;
+        out3[0] = s[Math.max(0, Math.min(n - 1, px))] ?? 0;
+        out3[1] = s[Math.max(0, Math.min(n - 1, py))] ?? 0;
+        out3[2] = s[Math.max(0, Math.min(n - 1, pz))] ?? 0;
+      }
+
+      // ---- Solver ----
+      function fillScopeFromState(tValue) {
+        const s = runtime.scope;
+        s.t = tValue;
+        // inject params into scope (flat)
+        for (const [k, v] of Object.entries(runtime.params)) s[k] = v;
+        const st = runtime.state;
+        const n = runtime.dim;
+        // x1..xN
+        for (let i = 0; i < n; i++) s['x' + (i + 1)] = st[i];
+        // legacy aliases
+        s.x = n >= 1 ? st[0] : 0;
+        s.y = n >= 2 ? st[1] : 0;
+        s.z = n >= 3 ? st[2] : 0;
+      }
+
+      function evalExpr3(out3, x, y, z, t) {
+        const s = runtime.scope;
+        s.x = x; s.y = y; s.z = z; s.t = t;
+        // inject params into scope (flat)
+        for (const [k, v] of Object.entries(runtime.params)) s[k] = v;
+        let a, b, c;
+        try {
+          // Keep legacy path for 3-field mode only
+          a = runtime.compiled.compiled[0].evaluate(s);
+          b = runtime.compiled.compiled[1].evaluate(s);
+          c = runtime.compiled.compiled[2].evaluate(s);
+        } catch (_) {
+          runtime.skippedDerivs++;
+          out3[0] = out3[1] = out3[2] = 0;
+          return false;
+        }
+        if (!isFiniteNumber(a) || !isFiniteNumber(b) || !isFiniteNumber(c)) {
+          runtime.skippedDerivs++;
+          out3[0] = out3[1] = out3[2] = 0;
+          return false;
+        }
+        out3[0] = a; out3[1] = b; out3[2] = c;
+        return true;
+      }
+
+      function evalVec(out, tValue) {
+        if (!runtime.compiled) return false;
+        fillScopeFromState(tValue);
+        const exprs = runtime.compiled.compiled;
+        const n = runtime.dim;
+        for (let i = 0; i < n; i++) {
+          let v;
+          try {
+            v = exprs[i].evaluate(runtime.scope);
+          } catch (_) {
+            runtime.skippedDerivs++;
+            return false;
+          }
+          if (!isFiniteNumber(v)) {
+            runtime.skippedDerivs++;
+            return false;
+          }
+          out[i] = v;
+        }
+        return true;
+      }
+
+      // ---- Adaptive embedded Runge–Kutta steppers ----
+      const AdaptiveMethods = {
+        // Dormand–Prince 5(4)
+        dp45: {
+          order: 5,
+          c: [0, 1/5, 3/10, 4/5, 8/9, 1, 1],
+          a: [
+            [],
+            [1/5],
+            [3/40, 9/40],
+            [44/45, -56/15, 32/9],
+            [19372/6561, -25360/2187, 64448/6561, -212/729],
+            [9017/3168, -355/33, 46732/5247, 49/176, -5103/18656],
+            [35/384, 0, 500/1113, 125/192, -2187/6784, 11/84],
+          ],
+          bHigh: [35/384, 0, 500/1113, 125/192, -2187/6784, 11/84, 0],
+          bLow:  [5179/57600, 0, 7571/16695, 393/640, -92097/339200, 187/2100, 1/40],
+        },
+        // Fehlberg 5(4) (RKF45)
+        rkf45: {
+          order: 5,
+          c: [0, 1/4, 3/8, 12/13, 1, 1/2],
+          a: [
+            [],
+            [1/4],
+            [3/32, 9/32],
+            [1932/2197, -7200/2197, 7296/2197],
+            [439/216, -8, 3680/513, -845/4104],
+            [-8/27, 2, -3544/2565, 1859/4104, -11/40],
+          ],
+          bHigh: [16/135, 0, 6656/12825, 28561/56430, -9/50, 2/55],
+          bLow:  [25/216, 0, 1408/2565, 2197/4104, -1/5, 0],
+        },
+        // Bogacki–Shampine 3(2) (RK23)
+        bs23: {
+          order: 3,
+          c: [0, 1/2, 3/4, 1],
+          a: [
+            [],
+            [1/2],
+            [0, 3/4],
+            [2/9, 1/3, 4/9],
+          ],
+          bHigh: [2/9, 1/3, 4/9, 0],
+          bLow:  [7/24, 1/4, 1/3, 1/8],
+        },
+        // Cash–Karp 5(4)
+        ck45: {
+          order: 5,
+          c: [0, 1/5, 3/10, 3/5, 1, 7/8],
+          a: [
+            [],
+            [1/5],
+            [3/40, 9/40],
+            [3/10, -9/10, 6/5],
+            [-11/54, 5/2, -70/27, 35/27],
+            [1631/55296, 175/512, 575/13824, 44275/110592, 253/4096],
+          ],
+          bHigh: [37/378, 0, 250/621, 125/594, 0, 512/1771],
+          bLow:  [2825/27648, 0, 18575/48384, 13525/55296, 277/14336, 1/4],
+        }
+      };
+
+      let kStage = [];
+      let yTmp = new Float64Array(3);
+      let yHigh = new Float64Array(3);
+      let yLow = new Float64Array(3);
+      let errVec = new Float64Array(3);
+
+      function isAdaptiveSolver(name) {
+        return name === 'dp45' || name === 'rkf45' || name === 'bs23' || name === 'ck45';
+      }
+
+      function normErrRMSVec(err, scale) {
+        let sum = 0;
+        const n = err.length;
+        for (let i = 0; i < n; i++) {
+          const r = err[i] / scale[i];
+          sum += r * r;
+        }
+        return Math.sqrt(sum / Math.max(1, n));
+      }
+
+      function stepAdaptiveOnce(methodKey) {
+        const method = AdaptiveMethods[methodKey];
+        if (!method) return false;
+
+        // If state is non-finite, recover (silent)
+        if (!isFiniteVec(runtime.state)) runtime.state.set(runtime.lastGood);
+
+        const safety = 0.9;
+        const minFactor = 0.2;
+        const maxFactor = 5.0;
+        const maxTries = 12;
+
+        let h = Math.max(runtime.dtMin, Math.min(runtime.dtMax, runtime.h || runtime.dt));
+        if (!(h > 0)) h = runtime.dt;
+
+        for (let attempt = 0; attempt < maxTries; attempt++) {
+          // Stage 0
+          const ok0 = evalVec(kStage[0], runtime.t);
+          if (!ok0) {
+            runtime.rejectedSteps++;
+            h = Math.max(runtime.dtMin, h * 0.5);
+            if (h <= runtime.dtMin) break;
+            continue;
+          }
+
+          const sCount = method.c.length;
+          let ok = true;
+          for (let i = 1; i < sCount; i++) {
+            const ai = method.a[i];
+            yTmp.set(runtime.state);
+            for (let j = 0; j < ai.length; j++) {
+              const aij = ai[j];
+              const kj = kStage[j];
+              for (let d = 0; d < runtime.dim; d++) yTmp[d] += h * aij * kj[d];
+            }
+            const ti = runtime.t + method.c[i] * h;
+            const prev = runtime.state;
+            runtime.state = yTmp;
+            const okStage = evalVec(kStage[i], ti);
+            runtime.state = prev;
+            if (!okStage) {
+              ok = false;
+              break;
+            }
+          }
+
+          if (!ok) {
+            runtime.rejectedSteps++;
+            h = Math.max(runtime.dtMin, h * 0.5);
+            if (h <= runtime.dtMin) break;
+            continue;
+          }
+
+          // Combine high/low
+          yHigh.set(runtime.state);
+          yLow.set(runtime.state);
+
+          for (let i = 0; i < sCount; i++) {
+            const bh = method.bHigh[i] || 0;
+            const bl = method.bLow[i] || 0;
+            const ki = kStage[i];
+            for (let d = 0; d < runtime.dim; d++) {
+              yHigh[d] += h * bh * ki[d];
+              yLow[d]  += h * bl * ki[d];
+            }
+          }
+
+          for (let d = 0; d < runtime.dim; d++) errVec[d] = yHigh[d] - yLow[d];
+          // reuse yTmp as scale buffer
+          for (let d = 0; d < runtime.dim; d++) {
+            yTmp[d] = runtime.absTol + runtime.relTol * Math.max(Math.abs(runtime.state[d]), Math.abs(yHigh[d]));
+          }
+          const err = normErrRMSVec(errVec, yTmp);
+
+          if (!Number.isFinite(err)) {
+            runtime.rejectedSteps++;
+            h = Math.max(runtime.dtMin, h * 0.5);
+            if (h <= runtime.dtMin) break;
+            continue;
+          }
+
+          // Propose new step
+          const p = method.order;
+          const exp = 1 / (p + 1);
+          const factor = err === 0 ? maxFactor : Math.min(maxFactor, Math.max(minFactor, safety * Math.pow(1 / err, exp)));
+          const hNew = Math.max(runtime.dtMin, Math.min(runtime.dtMax, h * factor));
+
+          if (err <= 1) {
+            // Accept
+            runtime.t += h;
+            runtime.state.set(yHigh);
+            if (isFiniteVec(runtime.state)) runtime.lastGood.set(runtime.state);
+            runtime.h = hNew;
+            return true;
+          } else {
+            // Reject
+            runtime.rejectedSteps++;
+            h = hNew;
+            runtime.h = h;
+            continue;
+          }
+        }
+
+        // If we reach here, we couldn't get a valid step. "Ignore infinite": advance time minimally.
+        runtime.skippedDerivs++;
+        const adv = Math.max(runtime.dtMin, 1e-9);
+        runtime.t += adv;
+        runtime.h = Math.max(runtime.dtMin, Math.min(runtime.dtMax, runtime.h || runtime.dt));
+        return false;
+      }
+
+      let k1 = new Float64Array(3), k2 = new Float64Array(3), k3 = new Float64Array(3), k4 = new Float64Array(3);
+      function stepEuler() {
+        const dt = runtime.dt;
+        if (!isFiniteVec(runtime.state)) runtime.state.set(runtime.lastGood);
+        const ok = evalVec(k1, runtime.t);
+        if (!ok) {
+          runtime.t += dt;
+          return;
+        }
+        for (let d = 0; d < runtime.dim; d++) runtime.state[d] += dt * k1[d];
+        if (isFiniteVec(runtime.state)) runtime.lastGood.set(runtime.state);
+        runtime.t += dt;
+      }
+
+      // ---- Map (discrete-time) ----
+      function stepMap() {
+        // Use t as iteration index for convenience
+        const t = runtime.t;
+        if (!evalVec(k1, t)) { runtime.t += 1; return; }
+        runtime.state.set(k1);
+        if (isFiniteVec(runtime.state)) runtime.lastGood.set(runtime.state);
+        runtime.t += 1;
+      }
+
+      // ---- SDE (Euler–Maruyama, additive noise) ----
+      let _randSpare = null;
+      function randn() {
+        if (_randSpare != null) {
+          const v = _randSpare;
+          _randSpare = null;
+          return v;
+        }
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        const mag = Math.sqrt(-2.0 * Math.log(u));
+        const z0 = mag * Math.cos(2.0 * Math.PI * v);
+        const z1 = mag * Math.sin(2.0 * Math.PI * v);
+        _randSpare = z1;
+        return z0;
+      }
+
+      function stepSDEEulerMaruyama() {
+        const dt = runtime.dt;
+        const sigma = Math.max(0, Number(runtime.sigma) || 0);
+        if (!evalVec(k1, runtime.t)) {
+          runtime.t += dt;
+          return;
+        }
+        const sdt = Math.sqrt(Math.max(0, dt));
+        for (let d = 0; d < runtime.dim; d++) runtime.state[d] += dt * k1[d] + sigma * sdt * randn();
+        if (isFiniteVec(runtime.state)) runtime.lastGood.set(runtime.state);
+        runtime.t += dt;
+      }
+
+      // ---- Parametric equation (sample curve) ----
+      function stepParametric() {
+        const dt = runtime.dt;
+        // Evaluate x_i(t) and set state directly
+        if (!evalVec(k1, runtime.t)) {
+          runtime.t += dt;
+          return;
+        }
+        runtime.state.set(k1);
+        if (isFiniteVec(runtime.state)) runtime.lastGood.set(runtime.state);
+        runtime.t += dt;
+      }
+
+      function stepRK4() {
+        const dt = runtime.dt;
+        if (!isFiniteVec(runtime.state)) runtime.state.set(runtime.lastGood);
+        const y0 = yTmp;
+        y0.set(runtime.state);
+        if (!evalVec(k1, runtime.t)) { runtime.t += dt; return; }
+        for (let d = 0; d < runtime.dim; d++) runtime.state[d] = y0[d] + 0.5 * dt * k1[d];
+        if (!evalVec(k2, runtime.t + 0.5 * dt)) { runtime.t += dt; runtime.state.set(y0); return; }
+        for (let d = 0; d < runtime.dim; d++) runtime.state[d] = y0[d] + 0.5 * dt * k2[d];
+        if (!evalVec(k3, runtime.t + 0.5 * dt)) { runtime.t += dt; runtime.state.set(y0); return; }
+        for (let d = 0; d < runtime.dim; d++) runtime.state[d] = y0[d] + dt * k3[d];
+        if (!evalVec(k4, runtime.t + dt)) { runtime.t += dt; runtime.state.set(y0); return; }
+        for (let d = 0; d < runtime.dim; d++) {
+          runtime.state[d] = y0[d] + (dt / 6) * (k1[d] + 2 * k2[d] + 2 * k3[d] + k4[d]);
+        }
+        if (isFiniteVec(runtime.state)) runtime.lastGood.set(runtime.state);
+        runtime.t += dt;
+      }
+
+      const _projTmp = [0, 0, 0];
+      function appendPointFromState() {
+        getProjectedXYZ(_projTmp);
+        const x = _projTmp[0], y = _projTmp[1], z = _projTmp[2];
+        if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return false;
+        const i = runtime.count;
+        if (i >= runtime.capacity) return false;
+        const p = i * 3;
+        runtime.positions[p + 0] = x;
+        runtime.positions[p + 1] = y;
+        runtime.positions[p + 2] = z;
+        const f = runtime.capacity <= 1 ? 1 : (i / (runtime.capacity - 1));
+        const [r, g, b] = colorForFraction(f);
+        runtime.colors[p + 0] = r;
+        runtime.colors[p + 1] = g;
+        runtime.colors[p + 2] = b;
+        runtime.count++;
+        return true;
+      }
+
+      function streamSolveChunk() {
+        if (!runtime.running) return;
+        if (!runtime.compiled) return;
+
+        const stepFn = (runtime.systemType === 'map')
+          ? stepMap
+          : (runtime.systemType === 'sde')
+            ? stepSDEEulerMaruyama
+            : (runtime.systemType === 'param')
+              ? stepParametric
+              : ((runtime.solver === 'euler') ? stepEuler
+                : isAdaptiveSolver(runtime.solver) ? () => stepAdaptiveOnce(runtime.solver)
+                : stepRK4);
+        const max = runtime.maxSteps;
+        const transient = runtime.transientSteps;
+        const perFrame = Math.max(1, runtime.pointsPerFrame | 0);
+
+        let wrote = 0;
+        for (let n = 0; n < perFrame; n++) {
+          if (runtime.stepIndex >= max) {
+            setRunning(false);
+            break;
+          }
+
+          // advance integrator by 1 step (non-finite is ignored inside stepFn)
+          stepFn();
+          runtime.stepIndex++;
+
+          if (runtime.stepIndex <= transient) continue;
+          if (!appendPointFromState()) {
+            // ignore non-finite points silently
+            continue;
+          }
+          wrote++;
+        }
+
+        if (wrote > 0) {
+          pathGeometry.setDrawRange(0, runtime.count);
+          pathGeometry.attributes.position.needsUpdate = true;
+          pathGeometry.attributes.color.needsUpdate = true;
+          // computeBoundingSphere is useful for frustum culling; safe now because we guard non-finite points.
+          pathGeometry.computeBoundingSphere();
+        }
+      }
+
+      function resetSimulation() {
+        showError('');
+        setRunning(false);
+        runtime.compiled = null;
+        runtime.params = {};
+        runtime.t = 0;
+        runtime.stepIndex = 0;
+        runtime.state = new Float64Array(runtime.dim);
+        runtime.lastGood = new Float64Array(runtime.dim);
+        runtime.skippedDerivs = 0;
+        runtime.rejectedSteps = 0;
+        runtime.systemType = 'ode';
+        runtime.sigma = 0;
+        resetPathGeometry(1);
+      }
+
+      function startSimulation() {
+        try {
+          showError('');
+          syncDimAuto();
+
+          const compiled = compileSystemEquations();
+          const params = parseParams(ui.params.value);
+          const initState = parseInit(ui.init.value);
+          const dt = parseFloatStrict(ui.dt.value, 'dt');
+          const category = String(ui.systemType?.value || 'ode_nonlinear');
+          const systemType = categoryToEngineType(category);
+          const sigma = parseFloatStrict(ui.sigma?.value ?? '0', 'sigma');
+          const absTol = parseFloatStrict(ui.absTol?.value ?? '1e-6', 'absTol');
+          const relTol = parseFloatStrict(ui.relTol?.value ?? '1e-3', 'relTol');
+          const dtMin = parseFloatStrict(ui.dtMin?.value ?? '1e-6', 'dtMin');
+          const dtMax = parseFloatStrict(ui.dtMax?.value ?? '0.05', 'dtMax');
+          const steps = parseIntStrict(ui.steps.value, 'steps');
+          const transient = parseIntStrict(ui.transient.value, 'transient');
+          const ppf = parseIntStrict(ui.ppf.value, 'Points/frame');
+
+          if (!(dt > 0)) throw new Error('dt must be > 0.');
+          if (!systemType) throw new Error(`This category is not implemented yet: ${category}`);
+          if (!(absTol > 0)) throw new Error('absTol must be > 0.');
+          if (!(relTol > 0)) throw new Error('relTol must be > 0.');
+          if (!(dtMin > 0)) throw new Error('dtMin must be > 0.');
+          if (!(dtMax > 0)) throw new Error('dtMax must be > 0.');
+          if (dtMin > dtMax) throw new Error('dtMin must be <= dtMax.');
+          if (!(steps > 10)) throw new Error('steps must be > 10.');
+          if (!(transient >= 0)) throw new Error('transient must be >= 0.');
+          if (transient >= steps) throw new Error('transient must be < steps.');
+
+          runtime.compiled = compiled;
+          runtime.params = params;
+          runtime.dim = compiled.n;
+          // allocate dimension-dependent buffers
+          k1 = new Float64Array(runtime.dim);
+          k2 = new Float64Array(runtime.dim);
+          k3 = new Float64Array(runtime.dim);
+          k4 = new Float64Array(runtime.dim);
+          yTmp = new Float64Array(runtime.dim);
+          yHigh = new Float64Array(runtime.dim);
+          yLow = new Float64Array(runtime.dim);
+          errVec = new Float64Array(runtime.dim);
+          kStage = Array.from({ length: 7 }, () => new Float64Array(runtime.dim));
+
+          const px = clampIndex1Based(ui.projX?.value ?? '1', runtime.dim, 1) - 1;
+          const py = clampIndex1Based(ui.projY?.value ?? '2', runtime.dim, Math.min(2, runtime.dim)) - 1;
+          const pz = clampIndex1Based(ui.projZ?.value ?? '3', runtime.dim, Math.min(3, runtime.dim)) - 1;
+          runtime.proj = [px, py, pz];
+
+          runtime.dt = dt;
+          runtime.h = Math.max(dtMin, Math.min(dtMax, dt));
+          runtime.absTol = absTol;
+          runtime.relTol = relTol;
+          runtime.dtMin = dtMin;
+          runtime.dtMax = dtMax;
+          runtime.systemType = systemType;
+          runtime.sigma = sigma;
+          runtime.maxSteps = steps;
+          runtime.transientSteps = transient;
+          runtime.pointsPerFrame = Math.max(1, ppf);
+          runtime.solver = String(ui.solver.value || 'rk4');
+          runtime.t = 0;
+          runtime.stepIndex = 0;
+          runtime.skippedDerivs = 0;
+          runtime.rejectedSteps = 0;
+          runtime.state = initState;
+          runtime.lastGood = new Float64Array(runtime.dim);
+          runtime.lastGood.set(initState);
+
+          // Pre-allocate only for the kept points (after transient)
+          resetPathGeometry(Math.max(1, steps - transient));
+          appendPointFromState();
+          pathGeometry.setDrawRange(0, runtime.count);
+          pathGeometry.attributes.position.needsUpdate = true;
+          pathGeometry.attributes.color.needsUpdate = true;
+          pathGeometry.computeBoundingSphere();
+
+          setRunning(true);
+        } catch (err) {
+          showError(`Start error:\n${String(err && err.message ? err.message : err)}`);
+          setRunning(false);
+        }
+      }
+
+      function validateSimulation() {
+        try {
+          showError('');
+          syncDimAuto();
+
+          const compiled = compileSystemEquations();
+          parseParams(ui.params.value);
+          parseInit(ui.init.value);
+
+          const category = String(ui.systemType?.value || 'ode_nonlinear');
+          const systemType = categoryToEngineType(category);
+          const dt = parseFloatStrict(ui.dt.value, 'dt');
+          const steps = parseIntStrict(ui.steps.value, 'steps/iterations');
+          const transient = parseIntStrict(ui.transient.value, 'transient');
+          const ppf = parseIntStrict(ui.ppf.value, 'Points/frame');
+
+          if (!systemType) throw new Error(`This category is not implemented yet: ${category}`);
+          if (!(steps > 10)) throw new Error('steps/iterations must be > 10.');
+          if (!(transient >= 0)) throw new Error('transient must be >= 0.');
+          if (transient >= steps) throw new Error('transient must be < steps/iterations.');
+          if (!(ppf > 0)) throw new Error('Points/frame must be > 0.');
+
+          if (systemType !== 'map') {
+            if (!(dt > 0)) throw new Error('dt must be > 0.');
+          }
+
+          if (systemType === 'ode' && isAdaptiveSolver(String(ui.solver?.value || 'rk4'))) {
+            const absTol = parseFloatStrict(ui.absTol?.value ?? '1e-6', 'absTol');
+            const relTol = parseFloatStrict(ui.relTol?.value ?? '1e-3', 'relTol');
+            const dtMin = parseFloatStrict(ui.dtMin?.value ?? '1e-6', 'dtMin');
+            const dtMax = parseFloatStrict(ui.dtMax?.value ?? '0.05', 'dtMax');
+            if (!(absTol > 0)) throw new Error('absTol must be > 0.');
+            if (!(relTol > 0)) throw new Error('relTol must be > 0.');
+            if (!(dtMin > 0)) throw new Error('dtMin must be > 0.');
+            if (!(dtMax > 0)) throw new Error('dtMax must be > 0.');
+            if (dtMin > dtMax) throw new Error('dtMin must be <= dtMax.');
+          }
+
+          // Projection indices sanity
+          const n = compiled.n;
+          clampIndex1Based(ui.projX?.value ?? '1', n, 1);
+          clampIndex1Based(ui.projY?.value ?? '2', n, Math.min(2, n));
+          clampIndex1Based(ui.projZ?.value ?? '3', n, Math.min(3, n));
+
+          showNotice('OK: inputs compiled successfully.');
+        } catch (err) {
+          showError(`Validate error:\n${String(err && err.message ? err.message : err)}`);
+        }
+      }
+
+      // ---- Buttons ----
+      ui.start.addEventListener('click', startSimulation);
+      ui.validate?.addEventListener('click', validateSimulation);
+      ui.pause.addEventListener('click', () => setRunning(!runtime.running));
+      ui.reset.addEventListener('click', () => resetSimulation());
+
+      // ---- Wizards ----
+      function splitCells(line) {
+        return String(line || '').trim().split(/[,\s]+/).filter(Boolean);
+      }
+
+      function buildAxB() {
+        try {
+          showError('');
+          const n = Math.max(1, parseIntStrict(ui.axbN?.value ?? ui.dim?.value ?? '3', 'N'));
+          const lines = String(ui.axbA?.value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          if (lines.length < n) throw new Error(`Matrix A needs at least ${n} non-empty lines.`);
+          const rows = [];
+          for (let i = 0; i < n; i++) {
+            const cells = splitCells(lines[i]);
+            if (cells.length < n) throw new Error(`Matrix A line ${i + 1} needs ${n} columns.`);
+            rows.push(cells.slice(0, n));
+          }
+          const bCells = splitCells(ui.axbB?.value || '');
+          const b = [];
+          for (let i = 0; i < n; i++) b.push(bCells[i] ?? '0');
+
+          const eqLines = [];
+          for (let i = 0; i < n; i++) {
+            const terms = [];
+            for (let j = 0; j < n; j++) {
+              const aij = String(rows[i][j] ?? '0').trim();
+              if (!aij || aij === '0' || aij === '0.0') continue;
+              terms.push(`(${aij})*x${j + 1}`);
+            }
+            const bi = String(b[i] ?? '0').trim();
+            if (bi && bi !== '0' && bi !== '0.0') terms.push(`(${bi})`);
+            const rhs = terms.length ? terms.join(' + ') : '0';
+            eqLines.push(`x${i + 1}' = ${rhs}`);
+          }
+
+          ui.systemType.value = 'ode';
+          if (ui.dim) ui.dim.value = String(n);
+          if (ui.eqMode) ui.eqMode.value = 'vector';
+          if (ui.eqs) ui.eqs.value = eqLines.join('\n');
+          syncEqModeUI();
+          syncSystemTypeUI();
+          showNotice('Applied: x\' = A x + b → vector equations.');
+        } catch (err) {
+          showError(`Wizard Ax+b error:\n${String(err && err.message ? err.message : err)}`);
+        }
+      }
+
+      function buildSecondOrder() {
+        try {
+          showError('');
+          const f = String(ui.xdd?.value || '').trim();
+          if (!f) throw new Error('Please enter f(x,v,t) for x\'\'.');
+          ui.systemType.value = 'ode';
+          if (ui.dim) ui.dim.value = '2';
+          if (ui.eqMode) ui.eqMode.value = 'vector';
+          if (ui.eqs) ui.eqs.value = `x1' = x2\nx2' = ${f}`;
+          syncEqModeUI();
+          syncSystemTypeUI();
+          showNotice('Applied: 2nd-order → N=2 vector equations.');
+        } catch (err) {
+          showError(`Wizard x'' error:\n${String(err && err.message ? err.message : err)}`);
+        }
+      }
+
+      ui.buildAxB?.addEventListener('click', () => buildAxB());
+      ui.buildXdd?.addEventListener('click', () => buildSecondOrder());
+
+      // ---- Settings panel wiring (no dat.gui) ----
+      // language
+      if (settings.langSelect) settings.langSelect.value = getCurrentLang();
+      settings.langSelect?.addEventListener('change', () => setCurrentLang(String(settings.langSelect.value || 'vi')));
+
+      // axes
+      axes.visible = true;
+      if (settings.axesSelect) settings.axesSelect.value = axes.visible ? '1' : '0';
+      settings.axesSelect?.addEventListener('change', () => {
+        axes.visible = String(settings.axesSelect.value) === '1';
+      });
+
+      // render mode
+      let currentMode = 'Line';
+      if (settings.modeSelect) settings.modeSelect.value = currentMode;
+      settings.modeSelect?.addEventListener('change', () => {
+        currentMode = String(settings.modeSelect.value || 'Line');
+        const isPoints = currentMode === 'Points';
+        pathPoints.visible = isPoints;
+        pathLine.visible = !isPoints;
+      });
+
+      // point size
+      function clampPointSize(v) {
+        return Math.max(0.001, Math.min(0.08, Number(v) || 0.01));
+      }
+      function setPointSize(v) {
+        const s = clampPointSize(v);
+        pointsMaterial.size = s;
+        pointsMaterial.needsUpdate = true;
+        if (settings.pointSize) settings.pointSize.value = String(s);
+        if (settings.pointSizeNum) settings.pointSizeNum.value = String(s);
+      }
+      setPointSize(pointsMaterial.size ?? 0.01);
+      settings.pointSize?.addEventListener('input', () => setPointSize(settings.pointSize.value));
+      settings.pointSizeNum?.addEventListener('input', () => setPointSize(settings.pointSizeNum.value));
+
+      // reset view
+      settings.resetView?.addEventListener('click', () => resetView());
+
+      // ---- Animation loop ----
+      function tick() {
+        controls.update();
+        streamSolveChunk();
+        if (ui.stats) {
+          const hInfo = isAdaptiveSolver(runtime.solver) ? ` h=<code>${runtime.h.toExponential(2)}</code> rej=<code>${runtime.rejectedSteps}</code>` : '';
+          const modeInfo = ` mode=<code>${runtime.systemType}</code>` + (runtime.systemType === 'sde' ? ` sigma=<code>${Number(runtime.sigma).toExponential(2)}</code>` : '');
+          ui.stats.innerHTML =
+            `t=<code>${runtime.t.toFixed(4)}</code> ` +
+            `step=<code>${runtime.stepIndex}</code> ` +
+            `points=<code>${runtime.count}</code> ` +
+            `skippedDerivs=<code>${runtime.skippedDerivs}</code>` +
+            hInfo +
+            modeInfo;
+        }
+        renderer.render(scene, camera);
+        requestAnimationFrame(tick);
+      }
+
+      function syncSystemTypeUI() {
+        const category = String(ui.systemType?.value || 'ode_nonlinear');
+        const st = categoryToEngineType(category) || 'ode';
+        // Map: hide dt + ODE solver/adaptive; SDE: show dt + sigma, hide ODE solver/adaptive.
+        // Param: show dt + hide ODE solver/adaptive/sigma.
+        if (ui.dtBox) ui.dtBox.style.display = (st === 'map') ? 'none' : 'block';
+        if (ui.odeRow) ui.odeRow.style.display = (st === 'ode') ? 'grid' : 'none';
+        if (ui.sdeRow) ui.sdeRow.style.display = (st === 'sde') ? 'grid' : 'none';
+        if (ui.stepsLabel) ui.stepsLabel.textContent = (st === 'map') ? 'iterations' : (st === 'param') ? 'samples' : 'steps';
+        if (ui.dtLabel) ui.dtLabel.textContent = (st === 'sde') ? 'dt (SDE)' : (st === 'param') ? 't step' : 'dt';
+
+        // Solver-dependent visibility (ODE only)
+        const isOde = st === 'ode';
+        const adaptive = isOde && isAdaptiveSolver(String(ui.solver?.value || 'rk4'));
+        if (ui.adaptiveRow1) ui.adaptiveRow1.style.display = adaptive ? 'grid' : 'none';
+        if (ui.adaptiveRow2) ui.adaptiveRow2.style.display = adaptive ? 'grid' : 'none';
+      }
+      ui.systemType?.addEventListener('change', () => syncSystemTypeUI());
+      ui.solver?.addEventListener('change', () => syncSystemTypeUI());
+      syncSystemTypeUI();
+
+      // ---- Resize ----
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // ---- Boot ----
+      axes.visible = true;
+      resetSimulation();
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>
+
