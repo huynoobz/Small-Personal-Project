@@ -1,5 +1,5 @@
 <!doctype html>
-<html version="1.6.54" lang="en">
+<html version="1.7.22" by="huynoobz" lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -206,6 +206,31 @@
       text-transform: uppercase;
       opacity: 0.75;
     }
+    .section-title.is-collapsible {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 10px;
+    }
+    .section-title.is-collapsible:hover {
+      background: rgba(255,255,255,0.04);
+    }
+    .section-title.is-collapsible::after {
+      content: "▾";
+      opacity: 0.85;
+      transform: rotate(0deg);
+      transition: transform 120ms ease;
+    }
+    .section-title.is-collapsible.is-collapsed::after {
+      transform: rotate(-90deg);
+    }
+    .section-title.is-collapsible.is-collapsed + .section-box {
+      display: none !important;
+    }
     .section-box {
       border: 1px solid rgba(255,255,255,0.10);
       background: rgba(255,255,255,0.03);
@@ -214,14 +239,31 @@
       margin-bottom: 10px;
     }
 
-    /* Basic/Advanced toggle */
-    #ui-panel.basic [data-advanced="1"] { display: none !important; }
+    /* FPS crosshair (shown only during pointer lock) */
+    #crosshair {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 8;
+      display: none;
+      pointer-events: none;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 18px;
+      line-height: 18px;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 0 6px rgba(0,0,0,0.8);
+      user-select: none;
+    }
+
+    /* Basic/Advanced toggle removed: always show all controls */
   </style>
 </head>
 <body>
   <div id="app"></div>
   <div id="error"></div>
   <div id="notice"></div>
+  <div id="crosshair" aria-hidden="true">+</div>
   <button id="open-settings" title="Open settings" style="display:none;">Settings</button>
   <div id="settings-panel">
     <div class="settings-header">
@@ -248,7 +290,7 @@
           <label id="settings-mode-label">Render mode</label>
           <select id="settings-mode">
             <option value="Line">Line</option>
-            <option value="Points">Points</option>
+            <option value="Points" selected>Points</option>
           </select>
         </div>
       </div>
@@ -257,6 +299,29 @@
         <div class="grid" style="grid-template-columns: 1fr 110px;">
           <input id="settings-pointsize" type="range" min="0.001" max="0.08" step="0.001" value="0.01" />
           <input id="settings-pointsize-num" type="number" min="0.001" max="0.08" step="0.001" value="0.01" />
+        </div>
+      </div>
+      <div>
+        <label id="settings-camspeed-label">Camera speed</label>
+        <div class="grid" style="grid-template-columns: 1fr 110px;">
+          <input id="settings-camspeed" type="range" min="0.2" max="3.5" step="0.05" value="1.0" />
+          <input id="settings-camspeed-num" type="number" min="0.2" max="3.5" step="0.05" value="1.0" />
+        </div>
+      </div>
+      <div>
+        <label id="settings-mouselock-label">Mouse lock</label>
+        <div class="grid" style="grid-template-columns: 1fr;">
+          <button id="settings-mouselock-btn" title="Click to lock/unlock mouse">Lock</button>
+        </div>
+        <div class="hint" id="settings-mouselock-hint" style="margin-top:6px;">
+          Click Lock to lock pointer. Move mouse to look around. Press Esc to unlock.
+        </div>
+      </div>
+      <div>
+        <label id="settings-mousesense-label">Mouse sensitivity</label>
+        <div class="grid" style="grid-template-columns: 1fr 110px;">
+          <input id="settings-mousesense" type="range" min="0.2" max="3.0" step="0.05" value="1.0" />
+          <input id="settings-mousesense-num" type="number" min="0.2" max="3.0" step="0.05" value="1.0" />
         </div>
       </div>
       <div class="grid">
@@ -268,7 +333,6 @@
     <div class="header">
       <div id="panel-title" class="title">3D Simulator Controller</div>
       <div style="display:flex; gap:8px; align-items:center;">
-        <button id="toggle-advanced" class="close-btn" title="Toggle advanced controls" aria-label="Toggle advanced controls" style="font-size:12px; width:auto; padding:0 10px; line-height:32px;">Advanced</button>
         <button id="close-controls" class="close-btn" title="Close controls" aria-label="Close controls">×</button>
       </div>
     </div>
@@ -282,14 +346,14 @@
           <option value="ode_linear">ODE – Linear</option>
           <option value="ode_nonlinear">ODE – Nonlinear</option>
           <option value="map">Discrete Map</option>
-          <option value="pde_linear" disabled>PDE – Linear (coming soon)</option>
-          <option value="pde_nonlinear" disabled>PDE – Nonlinear (coming soon)</option>
-          <option value="dae" disabled>DAE System (coming soon)</option>
+          <option value="pde_linear">PDE – Linear</option>
+          <option value="pde_nonlinear">PDE – Nonlinear</option>
+          <option value="dae">DAE System</option>
           <option value="stochastic">Stochastic System (SDE)</option>
-          <option value="hybrid" disabled>Hybrid System (coming soon)</option>
-          <option value="hamilton" disabled>Hamilton/Lagrange System (coming soon)</option>
-          <option value="optimization" disabled>Optimization / Gradient Flow (coming soon)</option>
-          <option value="markov" disabled>Markov / Probabilistic System (coming soon)</option>
+          <option value="hybrid">Hybrid System</option>
+          <option value="hamilton">Hamilton/Lagrange System</option>
+          <option value="optimization">Optimization / Gradient Flow</option>
+          <option value="markov">Markov / Probabilistic System</option>
         </select>
       </div>
 
@@ -306,7 +370,7 @@
         <input id="presetSearch" placeholder="Type to filter presets…" />
       </div>
 
-      <div class="grid row">
+      <div class="grid row" id="dimproj-row">
     <div>
           <label>
             <span id="dim-label">Dimension N</span>
@@ -327,7 +391,7 @@
     </div>
   </div>
 
-      <div class="row">
+      <div class="row" id="eqmode-row">
         <label>Equation mode</label>
         <select id="eqMode">
           <option value="simple" selected>Simple (dx/dy/dz)</option>
@@ -360,45 +424,202 @@
         <textarea id="params"></textarea>
       </div>
 
-      <div class="grid row">
+      <div class="grid row" id="init-row">
         <div>
           <label>Initial (comma-separated, length N)</label>
           <input id="init" value="0.1, 0.1, 0.1" />
         </div>
       </div>
-    </div>
 
-    <div id="section-wizards" class="section-title" data-advanced="1">Wizards</div>
-    <div class="section-box" data-advanced="1">
-      <div class="row">
-        <label>Linear system builder (ODE): x' = A x + b</label>
-        <div class="grid">
+      <!-- PDE (Linear) -->
+      <div id="pde-linear-section" class="section-title" style="display:none;">PDE – Linear</div>
+      <div id="pde-linear-box" class="section-box" style="display:none;">
+        <div class="row">
+          <label>PDE type</label>
+          <select id="pdeType">
+            <option value="heat2d" selected>Heat / Diffusion (2D): u_t = α(uxx + uyy) + S</option>
+          </select>
+        </div>
+
+        <div class="grid row">
           <div>
-            <label>N</label>
-            <input id="axbN" value="3" />
+            <label>Nx</label>
+            <input id="pdeNx" value="90" />
           </div>
-          <div style="display:flex; align-items:flex-end;">
-            <button id="build-axb" class="secondary">Build Ax+b → Vector eqs</button>
+          <div>
+            <label>Ny</label>
+            <input id="pdeNy" value="90" />
           </div>
         </div>
-        <label>Matrix A (N lines, columns separated by comma or space; entries can be numbers or parameter names)</label>
-        <textarea id="axbA" placeholder="Example N=3:&#10;0 1 0&#10;-k -c 0&#10;0 0 -1"></textarea>
-        <label>Vector b (N numbers/expressions, separated by comma or space)</label>
-        <input id="axbB" placeholder="Example: 0, 0, 0" />
+
+        <div class="grid row">
+          <div>
+            <label>x min</label>
+            <input id="pdeXMin" value="-1" />
+          </div>
+          <div>
+            <label>x max</label>
+            <input id="pdeXMax" value="1" />
+          </div>
+        </div>
+        <div class="grid row">
+          <div>
+            <label>y min</label>
+            <input id="pdeYMin" value="-1" />
+          </div>
+          <div>
+            <label>y max</label>
+            <input id="pdeYMax" value="1" />
+          </div>
+        </div>
+
+        <div class="grid row">
+          <div>
+            <label>α (diffusivity)</label>
+            <input id="pdeAlpha" value="0.25" />
+          </div>
+          <div>
+            <label>Boundary</label>
+            <select id="pdeBC">
+              <option value="dirichlet0" selected>Dirichlet: u=0</option>
+              <option value="neumann0">Neumann: ∂u/∂n=0</option>
+              <option value="periodic">Periodic</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid row">
+          <div>
+            <label>Z scale</label>
+            <input id="pdeZScale" value="1.0" />
+          </div>
+          <div class="hint" style="margin-top:22px;">
+            Variables: <code>x</code>, <code>y</code>, <code>t</code>, params. Use <code>sin</code>, <code>exp</code>, etc.
+          </div>
+        </div>
+
+        <div class="row">
+          <label>Initial condition u(x,y,t=0)</label>
+          <textarea id="pdeU0" placeholder="Example: exp(-20*(x^2+y^2))"></textarea>
+        </div>
+        <div class="row" data-advanced="1">
+          <label>Source term S(x,y,t) (optional)</label>
+          <textarea id="pdeSource" placeholder="Example: 0"></textarea>
+        </div>
+        <div class="row" id="pde-nonlinear-row" style="display:none;">
+          <label>Nonlinear term N(u,x,y,t) (optional)</label>
+          <textarea id="pdeNonlinear" placeholder="Examples: u*(1-u)  or  u - u^3"></textarea>
+        </div>
       </div>
 
-      <div class="row" style="margin-top:12px;">
-        <label>2nd-order scalar wizard (ODE): x'' = f(x, v, t, params)</label>
-        <div class="grid">
+      <!-- DAE (index-1 semi-explicit): x' = f(x,y,t), 0 = g(x,y,t) -->
+      <div id="dae-section" class="section-title" style="display:none;">DAE</div>
+      <div id="dae-box" class="section-box" style="display:none;">
+        <div class="grid row">
           <div>
-            <label>f(x,v,t)</label>
-            <input id="xdd" placeholder="-k*x - c*v + F*cos(w*t)" />
+            <label>Nx (differential vars)</label>
+            <input id="daeNx" value="1" />
           </div>
-          <div style="display:flex; align-items:flex-end;">
-            <button id="build-xdd" class="secondary">Build to N=2 (x1=x, x2=v)</button>
+          <div class="hint" style="margin-top:22px;">
+            State is <code>[x1..xNx, y1..yNy]</code>. Use variables <code>x1..xN</code>, <code>t</code>, params.
           </div>
         </div>
-        <div class="hint">This will set vector equations: <code>x1' = x2</code> and <code>x2' = f</code>. Use <code>x1</code> and <code>x2</code> (or <code>x</code>, <code>y</code> aliases) inside f.</div>
+        <div class="row">
+          <label>DAE differential equations (Nx lines): x' = f(x,y,t)</label>
+          <textarea id="daeF" placeholder="Example (Nx=1):&#10;x1' = -x1 + x2"></textarea>
+        </div>
+        <div class="row">
+          <label>DAE algebraic constraints (Ny lines): 0 = g(x,y,t)</label>
+          <textarea id="daeG" placeholder="Example (Ny=1):&#10;0 = x2 - x1^2"></textarea>
+        </div>
+        <div class="grid row" data-advanced="1">
+          <div>
+            <label>Newton tol</label>
+            <input id="daeTol" value="1e-8" />
+          </div>
+          <div>
+            <label>Newton max iters</label>
+            <input id="daeNewtonIters" value="12" />
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+      <!-- Hybrid rules (event + reset) -->
+      <div id="hybrid-section" class="section-title" style="display:none;">Hybrid rules</div>
+      <div id="hybrid-box" class="section-box" style="display:none;">
+        <div class="row">
+          <label>Event condition (trigger when this becomes true)</label>
+          <input id="hybridEvent" placeholder="Example: x1 >= v_th" />
+        </div>
+        <div class="row">
+          <label>Reset rules (each line: x1 = ..., x2 = ...)</label>
+          <textarea id="hybridReset" placeholder="Example:&#10;x1 = v_reset&#10;x2 = spikeAmp"></textarea>
+        </div>
+        <div class="hint">
+          When the event triggers, the solver finds the crossing time inside the current step, advances to it, then applies the reset instantly.
+        </div>
+      </div>
+
+    <!-- Algebraic (implicit surface) -->
+    <div id="alg-section" class="section-title" style="display:none;">Algebraic</div>
+    <div id="alg-box" class="section-box" style="display:none;">
+      <div class="row">
+        <label>Algebraic mode</label>
+        <select id="algMode">
+          <option value="parametric" selected>Parametric curve (x(t),y(t),z(t))</option>
+          <option value="implicit">Implicit surface (F(x,y,z)=iso)</option>
+        </select>
+      </div>
+      <div id="alg-implicit-row" style="display:none;">
+        <div class="row">
+          <label>F(x,y,z)</label>
+          <textarea id="algF" placeholder="Example (sphere): x^2+y^2+z^2-1"></textarea>
+        </div>
+        <div class="grid row">
+          <div>
+            <label>iso</label>
+            <input id="algIso" value="0" />
+          </div>
+          <div>
+            <label>resolution (N)</label>
+            <input id="algRes" value="40" />
+          </div>
+        </div>
+        <div class="grid row">
+          <div>
+            <label>x min</label>
+            <input id="algXMin" value="-1.5" />
+          </div>
+          <div>
+            <label>x max</label>
+            <input id="algXMax" value="1.5" />
+          </div>
+        </div>
+        <div class="grid row">
+          <div>
+            <label>y min</label>
+            <input id="algYMin" value="-1.5" />
+          </div>
+          <div>
+            <label>y max</label>
+            <input id="algYMax" value="1.5" />
+          </div>
+        </div>
+        <div class="grid row">
+          <div>
+            <label>z min</label>
+            <input id="algZMin" value="-1.5" />
+          </div>
+          <div>
+            <label>z max</label>
+            <input id="algZMax" value="1.5" />
+          </div>
+        </div>
+        <div class="hint">
+          Use variables <code>x</code>, <code>y</code>, <code>z</code> and params (e.g. <code>a,b,c</code>, <code>n</code>). Example torus: <code>(x^2+y^2+z^2+R^2-r^2)^2-4*R^2*(x^2+y^2)</code>.
+        </div>
       </div>
     </div>
 
@@ -465,13 +686,13 @@
         </div>
       </div>
 
-      <div class="grid row" data-advanced="1">
-        <div>
+      <div class="grid row" data-advanced="1" id="stream-row">
+        <div id="transient-box">
           <label>Transient (skip)</label>
           <input id="transient" value="2000" />
         </div>
-        <div>
-          <label>Points/frame (streaming)</label>
+        <div id="ppf-box">
+          <label id="ppf-label">Points/frame (streaming)</label>
           <input id="ppf" value="1500" />
         </div>
       </div>
@@ -559,6 +780,203 @@
       controls.rotateSpeed = 0.7;
       controls.panSpeed = 0.7;
 
+      // ---- Keyboard: game-like movement with arrow keys (supports holding multiple keys) ----
+      // ArrowLeft/Right: strafe; ArrowUp/Down: forward/back. Moves camera + controls.target (no zoom).
+      function isTypingInControl() {
+        const el = document.activeElement;
+        if (!el) return false;
+        const tag = String(el.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+        // contenteditable
+        if (el.isContentEditable) return true;
+        return false;
+      }
+
+      // WASD movement (game-like). Shift = up, Ctrl = down.
+      const _moveKeys = { left: false, right: false, forward: false, back: false, shiftUp: false, ctrlDown: false };
+      let _movePrevMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      const _kbForward = new THREE.Vector3();
+      const _kbRight = new THREE.Vector3();
+      const _kbDelta = new THREE.Vector3();
+      let cameraMoveSpeed = 1.0; // user setting
+      let mouseLockEnabled = false;
+      let mouseSensitivity = 1.0;
+      let pointerLocked = false;
+      let _unlockRequested = false;
+      const crosshairEl = document.getElementById('crosshair');
+
+      // True FPS look (yaw/pitch) while pointer is locked.
+      let fpYaw = 0;
+      let fpPitch = 0;
+      let fpLookDist = 10;
+      const _fpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+      const _fpDir = new THREE.Vector3();
+
+      function syncFpAnglesFromCamera() {
+        _fpEuler.setFromQuaternion(camera.quaternion, 'YXZ');
+        fpPitch = _fpEuler.x;
+        fpYaw = _fpEuler.y;
+      }
+      function updateFpTarget() {
+        camera.getWorldDirection(_fpDir).normalize();
+        controls.target.copy(camera.position).addScaledVector(_fpDir, fpLookDist);
+      }
+      function applyFpRotation() {
+        // Clamp pitch to avoid flipping
+        const lim = Math.PI * 0.5 - 0.001;
+        fpPitch = Math.max(-lim, Math.min(lim, fpPitch));
+        _fpEuler.set(fpPitch, fpYaw, 0, 'YXZ');
+        camera.quaternion.setFromEuler(_fpEuler);
+      }
+
+      function isPointerLocked() {
+        return document.pointerLockElement === renderer.domElement;
+      }
+
+      function setPointerLockEnabled(on) {
+        mouseLockEnabled = !!on;
+        if (settings.mouseLockBtn) settings.mouseLockBtn.textContent = isPointerLocked() ? 'Unlock' : 'Lock';
+        saveSettingsCache({ mouseLock: mouseLockEnabled ? 1 : 0 });
+      }
+
+      function clampMouseSensitivity(v) {
+        return Math.max(0.2, Math.min(3.0, Number(v) || 1.0));
+      }
+      function setMouseSensitivity(v) {
+        const s = clampMouseSensitivity(v);
+        mouseSensitivity = s;
+        if (settings.mouseSense) settings.mouseSense.value = String(s);
+        if (settings.mouseSenseNum) settings.mouseSenseNum.value = String(s);
+        saveSettingsCache({ mouseSensitivity: s });
+      }
+
+      function requestPointerLock() {
+        if (!mouseLockEnabled) return;
+        try { renderer.domElement.requestPointerLock?.(); } catch (_) {}
+      }
+      function exitPointerLock() {
+        try { document.exitPointerLock?.(); } catch (_) {}
+      }
+
+      function onPointerLockChange() {
+        pointerLocked = isPointerLocked();
+        if (settings.mouseLockBtn) settings.mouseLockBtn.textContent = pointerLocked ? 'Unlock' : 'Lock';
+        if (crosshairEl) crosshairEl.style.display = pointerLocked ? 'block' : 'none';
+
+        if (pointerLocked) {
+          // Enter FPS mode: disable orbit UI interactions, keep target in front of camera.
+          controls.enabled = false;
+          fpLookDist = camera.position.distanceTo(controls.target) || 10;
+          syncFpAnglesFromCamera();
+          applyFpRotation();
+          updateFpTarget();
+          controls.update();
+        } else {
+          // Exit FPS mode: re-enable OrbitControls.
+          controls.enabled = true;
+          controls.update();
+
+          // If lock was lost unexpectedly (e.g. Alt key triggering browser menu),
+          // keep the feature enabled and tell user to re-lock.
+          if (mouseLockEnabled && !_unlockRequested) {
+            showNotice('Mouse lock lost. Click Lock to re-enter.');
+          }
+          _unlockRequested = false;
+        }
+      }
+      document.addEventListener('pointerlockchange', onPointerLockChange);
+
+      function onLockedMouseMove(e) {
+        if (!pointerLocked) return;
+        const dx = Number(e.movementX || 0);
+        const dy = Number(e.movementY || 0);
+        const sens = 0.0022 * mouseSensitivity;
+        // FPS-style: mouse right -> look right, mouse up -> look up
+        fpYaw += -dx * sens;
+        fpPitch += -dy * sens;
+        applyFpRotation();
+        updateFpTarget();
+      }
+      document.addEventListener('mousemove', onLockedMouseMove);
+
+      function anyMoveKeyDown() {
+        return _moveKeys.left || _moveKeys.right || _moveKeys.forward || _moveKeys.back || _moveKeys.shiftUp || _moveKeys.ctrlDown;
+      }
+
+      function applyKeyboardMove(dtSec) {
+        if (isTypingInControl()) return;
+        if (!anyMoveKeyDown()) return;
+        const lr = (_moveKeys.right ? 1 : 0) + (_moveKeys.left ? -1 : 0);
+        const fb = (_moveKeys.forward ? 1 : 0) + (_moveKeys.back ? -1 : 0);
+        const ud = (_moveKeys.shiftUp ? 1 : 0) + (_moveKeys.ctrlDown ? -1 : 0);
+        if (lr === 0 && fb === 0 && ud === 0) return;
+
+        // Normalize diagonal so speed stays consistent
+        const mag = Math.hypot(lr, fb, ud) || 1;
+        const nlr = lr / mag;
+        const nfb = fb / mag;
+        const nud = ud / mag;
+
+        const target = controls.target;
+        const dist = pointerLocked ? fpLookDist : camera.position.distanceTo(target);
+        const step = dist * 0.9 * dtSec * cameraMoveSpeed; // game-like feel (scaled)
+
+        camera.getWorldDirection(_kbForward).normalize();
+        _kbRight.crossVectors(_kbForward, camera.up).normalize();
+        _kbDelta.set(0, 0, 0);
+        _kbDelta.addScaledVector(_kbRight, nlr * step);
+        _kbDelta.addScaledVector(_kbForward, nfb * step);
+        _kbDelta.addScaledVector(camera.up, nud * step);
+        camera.position.add(_kbDelta);
+        if (pointerLocked) {
+          // FPS: target stays in front of camera
+          updateFpTarget();
+        } else {
+          // Orbit-style move: translate camera and target together
+          target.add(_kbDelta);
+        }
+      }
+
+      window.addEventListener('keydown', (e) => {
+        // Allow normal cursor movement inside inputs/textareas/selects.
+        if (isTypingInControl()) return;
+        const k = e.key;
+        const code = e.code;
+        // Prevent Alt from focusing browser menu while pointer-locked (commonly drops pointer lock on Windows).
+        if (pointerLocked && (k === 'Alt' || code === 'AltLeft' || code === 'AltRight')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (k === 'Shift') { _moveKeys.shiftUp = true; e.preventDefault(); return; }
+        if (k === 'Control') { _moveKeys.ctrlDown = true; e.preventDefault(); return; }
+        if (code === 'KeyA') { _moveKeys.left = true; e.preventDefault(); }
+        if (code === 'KeyD') { _moveKeys.right = true; e.preventDefault(); }
+        if (code === 'KeyW') { _moveKeys.forward = true; e.preventDefault(); }
+        if (code === 'KeyS') { _moveKeys.back = true; e.preventDefault(); }
+      }, { passive: false });
+
+      window.addEventListener('keyup', (e) => {
+        const k = e.key;
+        const code = e.code;
+        // Fallback: if Alt still caused unlock, allow Alt keyup (user gesture) to re-lock.
+        if (!pointerLocked && mouseLockEnabled && (k === 'Alt' || code === 'AltLeft' || code === 'AltRight')) {
+          e.preventDefault?.();
+          requestPointerLock();
+          return;
+        }
+        if (k === 'Shift') _moveKeys.shiftUp = false;
+        if (k === 'Control') _moveKeys.ctrlDown = false;
+        if (code === 'KeyA') _moveKeys.left = false;
+        if (code === 'KeyD') _moveKeys.right = false;
+        if (code === 'KeyW') _moveKeys.forward = false;
+        if (code === 'KeyS') _moveKeys.back = false;
+      });
+
+      window.addEventListener('blur', () => {
+        _moveKeys.left = _moveKeys.right = _moveKeys.forward = _moveKeys.back = _moveKeys.shiftUp = _moveKeys.ctrlDown = false;
+      });
+
       const ambient = new THREE.AmbientLight(0xffffff, 0.35);
       scene.add(ambient);
       const dir = new THREE.DirectionalLight(0xffffff, 0.55);
@@ -578,10 +996,8 @@
         panel: document.getElementById('ui-panel'),
         openControls: document.getElementById('open-controls'),
         closeControls: document.getElementById('close-controls'),
-        toggleAdvanced: document.getElementById('toggle-advanced'),
         panelTitle: document.getElementById('panel-title'),
         sectionModel: document.getElementById('section-model'),
-        sectionWizards: document.getElementById('section-wizards'),
         sectionRun: document.getElementById('section-run'),
         mainHint: document.getElementById('main-hint'),
         stats: document.getElementById('stats'),
@@ -597,7 +1013,11 @@
         adaptiveRow1: document.getElementById('adaptive-row-1'),
         adaptiveRow2: document.getElementById('adaptive-row-2'),
         sdeRow: document.getElementById('sde-row'),
+        streamRow: document.getElementById('stream-row'),
+        transientBox: document.getElementById('transient-box'),
+        ppfLabel: document.getElementById('ppf-label'),
         sigma: document.getElementById('sigma'),
+        dimProjRow: document.getElementById('dimproj-row'),
         dim: document.getElementById('dim'),
         dimAuto: document.getElementById('dimAuto'),
         dimLabel: document.getElementById('dim-label'),
@@ -605,6 +1025,7 @@
         projX: document.getElementById('projX'),
         projY: document.getElementById('projY'),
         projZ: document.getElementById('projZ'),
+        eqModeRow: document.getElementById('eqmode-row'),
         eqMode: document.getElementById('eqMode'),
         eqs: document.getElementById('eqs'),
         simpleEqs: document.getElementById('simple-eqs'),
@@ -612,6 +1033,7 @@
         dy: document.getElementById('dy'),
         dz: document.getElementById('dz'),
         params: document.getElementById('params'),
+        initRow: document.getElementById('init-row'),
         init: document.getElementById('init'),
         dt: document.getElementById('dt'),
         absTol: document.getElementById('absTol'),
@@ -627,13 +1049,98 @@
         pause: document.getElementById('pause'),
         reset: document.getElementById('reset'),
         exportBtn: null,
-        axbN: document.getElementById('axbN'),
-        axbA: document.getElementById('axbA'),
-        axbB: document.getElementById('axbB'),
-        buildAxB: document.getElementById('build-axb'),
-        xdd: document.getElementById('xdd'),
-        buildXdd: document.getElementById('build-xdd'),
+        // PDE (linear)
+        pdeSection: document.getElementById('pde-linear-section'),
+        pdeBox: document.getElementById('pde-linear-box'),
+        pdeType: document.getElementById('pdeType'),
+        pdeNx: document.getElementById('pdeNx'),
+        pdeNy: document.getElementById('pdeNy'),
+        pdeXMin: document.getElementById('pdeXMin'),
+        pdeXMax: document.getElementById('pdeXMax'),
+        pdeYMin: document.getElementById('pdeYMin'),
+        pdeYMax: document.getElementById('pdeYMax'),
+        pdeAlpha: document.getElementById('pdeAlpha'),
+        pdeBC: document.getElementById('pdeBC'),
+        pdeZScale: document.getElementById('pdeZScale'),
+        pdeU0: document.getElementById('pdeU0'),
+        pdeSource: document.getElementById('pdeSource'),
+        pdeNonlinearRow: document.getElementById('pde-nonlinear-row'),
+        pdeNonlinear: document.getElementById('pdeNonlinear'),
+        // DAE
+        daeSection: document.getElementById('dae-section'),
+        daeBox: document.getElementById('dae-box'),
+        daeNx: document.getElementById('daeNx'),
+        daeF: document.getElementById('daeF'),
+        daeG: document.getElementById('daeG'),
+        daeTol: document.getElementById('daeTol'),
+        daeNewtonIters: document.getElementById('daeNewtonIters'),
+        // Hybrid
+        hybridSection: document.getElementById('hybrid-section'),
+        hybridBox: document.getElementById('hybrid-box'),
+        hybridEvent: document.getElementById('hybridEvent'),
+        hybridReset: document.getElementById('hybridReset'),
+        // Algebraic (implicit surface)
+        algSection: document.getElementById('alg-section'),
+        algBox: document.getElementById('alg-box'),
+        algMode: document.getElementById('algMode'),
+        algImplicitRow: document.getElementById('alg-implicit-row'),
+        algF: document.getElementById('algF'),
+        algIso: document.getElementById('algIso'),
+        algRes: document.getElementById('algRes'),
+        algXMin: document.getElementById('algXMin'),
+        algXMax: document.getElementById('algXMax'),
+        algYMin: document.getElementById('algYMin'),
+        algYMax: document.getElementById('algYMax'),
+        algZMin: document.getElementById('algZMin'),
+        algZMax: document.getElementById('algZMax'),
       };
+
+      // ---- Collapsible panels (Model / Algebraic / Wizards / Run) ----
+      const UI_COLLAPSE_KEY = 'sim_ui_collapsed_panels_v1';
+      function loadCollapseMap() {
+        try {
+          const raw = localStorage.getItem(UI_COLLAPSE_KEY);
+          const v = safeJsonParse(raw, {});
+          return (v && typeof v === 'object') ? v : {};
+        } catch (_) {
+          return {};
+        }
+      }
+      function saveCollapseMap(next) {
+        try { localStorage.setItem(UI_COLLAPSE_KEY, JSON.stringify(next || {})); } catch (_) {}
+      }
+      function setCollapsed(titleEl, collapsed) {
+        if (!titleEl) return;
+        const box = titleEl.nextElementSibling;
+        if (!box || !box.classList || !box.classList.contains('section-box')) return;
+        titleEl.classList.toggle('is-collapsed', !!collapsed);
+        titleEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      }
+      function makePanelCollapsible(titleEl, key) {
+        if (!titleEl) return;
+        const box = titleEl.nextElementSibling;
+        if (!box || !box.classList || !box.classList.contains('section-box')) return;
+        titleEl.classList.add('is-collapsible');
+        titleEl.setAttribute('role', 'button');
+        titleEl.setAttribute('tabindex', '0');
+        const map = loadCollapseMap();
+        setCollapsed(titleEl, !!map[key]);
+        const toggle = () => {
+          const now = titleEl.classList.contains('is-collapsed');
+          const nextCollapsed = !now;
+          const m = loadCollapseMap();
+          m[key] = nextCollapsed;
+          saveCollapseMap(m);
+          setCollapsed(titleEl, nextCollapsed);
+        };
+        titleEl.addEventListener('click', toggle);
+        titleEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle();
+          }
+        });
+      }
 
       // ---- Right settings panel (no dat.gui) ----
       const settings = {
@@ -650,9 +1157,38 @@
         pointSizeLabel: document.getElementById('settings-pointsize-label'),
         pointSize: document.getElementById('settings-pointsize'),
         pointSizeNum: document.getElementById('settings-pointsize-num'),
+        camSpeedLabel: document.getElementById('settings-camspeed-label'),
+        camSpeed: document.getElementById('settings-camspeed'),
+        camSpeedNum: document.getElementById('settings-camspeed-num'),
+        mouseLockLabel: document.getElementById('settings-mouselock-label'),
+        mouseLockBtn: document.getElementById('settings-mouselock-btn'),
+        mouseLockHint: document.getElementById('settings-mouselock-hint'),
+        mouseSenseLabel: document.getElementById('settings-mousesense-label'),
+        mouseSense: document.getElementById('settings-mousesense'),
+        mouseSenseNum: document.getElementById('settings-mousesense-num'),
         resetView: document.getElementById('settings-resetview'),
       };
+
+      // Setup collapsible panels now that elements exist
+      makePanelCollapsible(ui.sectionModel, 'model');
+      makePanelCollapsible(ui.algSection, 'algebraic');
+      makePanelCollapsible(ui.sectionRun, 'run');
       const SETTINGS_OPEN_KEY = 'sim_settings_open';
+      const SETTINGS_CACHE_KEY = 'sim_settings_cache_v1';
+      function loadSettingsCache() {
+        try {
+          const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
+          const v = safeJsonParse(raw, {});
+          return (v && typeof v === 'object') ? v : {};
+        } catch (_) {
+          return {};
+        }
+      }
+      function saveSettingsCache(patch) {
+        const prev = loadSettingsCache();
+        const next = { ...prev, ...patch };
+        try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(next)); } catch (_) {}
+      }
       function setSettingsOpen(open) {
         const isOpen = !!open;
         settings.panel?.classList.toggle('is-hidden', !isOpen);
@@ -680,7 +1216,7 @@
           advanced: 'Nâng cao',
           basic: 'Cơ bản',
           sectionModel: 'Mô hình',
-          sectionWizards: 'Trợ lý nhập nhanh',
+          // sectionWizards removed
           sectionRun: 'Chạy mô phỏng',
           systemCategory: 'Phân loại hệ',
           preset: 'Preset',
@@ -722,21 +1258,16 @@
             ode_linear: 'ODE – Tuyến tính',
             ode_nonlinear: 'ODE – Phi tuyến',
             map: 'Hệ sai phân (Discrete Map)',
-            pde_linear: 'PDE – Tuyến tính (sắp có)',
-            pde_nonlinear: 'PDE – Phi tuyến (sắp có)',
-            dae: 'DAE (sắp có)',
+            pde_linear: 'PDE – Tuyến tính',
+            pde_nonlinear: 'PDE – Phi tuyến',
+            dae: 'DAE',
             stochastic: 'Hệ ngẫu nhiên (SDE)',
-            hybrid: 'Hybrid (sắp có)',
-            hamilton: 'Hamilton/Lagrange (sắp có)',
-            optimization: 'Tối ưu / Gradient Flow (sắp có)',
-            markov: 'Markov / Xác suất (sắp có)',
+            hybrid: 'Hybrid',
+            hamilton: 'Hamilton/Lagrange',
+            optimization: 'Tối ưu / Gradient Flow',
+            markov: 'Markov / Xác suất',
           },
-          wizardAxB: "Trợ lý hệ tuyến tính (ODE): x' = A x + b",
-          wizardBuildAxB: 'Tạo Ax+b → Eq vector',
-          wizardA: 'Ma trận A (N dòng; cột cách nhau bởi dấu phẩy hoặc khoảng trắng)',
-          wizardB: 'Vector b (N phần tử; cách nhau bởi dấu phẩy hoặc khoảng trắng)',
-          wizardXdd: "Trợ lý bậc 2 (ODE): x'' = f(x, v, t, params)",
-          wizardBuildXdd: 'Tạo N=2 (x1=x, x2=v)',
+          // wizard strings removed
         },
         en: {
           panelTitle: '3D Simulator Controller',
@@ -744,7 +1275,7 @@
           advanced: 'Advanced',
           basic: 'Basic',
           sectionModel: 'Model',
-          sectionWizards: 'Wizards',
+          // sectionWizards removed
           sectionRun: 'Run',
           systemCategory: 'System category',
           preset: 'Preset',
@@ -786,21 +1317,16 @@
             ode_linear: 'ODE – Linear',
             ode_nonlinear: 'ODE – Nonlinear',
             map: 'Discrete Map',
-            pde_linear: 'PDE – Linear (coming soon)',
-            pde_nonlinear: 'PDE – Nonlinear (coming soon)',
-            dae: 'DAE System (coming soon)',
+            pde_linear: 'PDE – Linear',
+            pde_nonlinear: 'PDE – Nonlinear',
+            dae: 'DAE System',
             stochastic: 'Stochastic System (SDE)',
-            hybrid: 'Hybrid System (coming soon)',
-            hamilton: 'Hamilton/Lagrange (coming soon)',
-            optimization: 'Optimization / Gradient Flow (coming soon)',
-            markov: 'Markov / Probabilistic System (coming soon)',
+            hybrid: 'Hybrid System',
+            hamilton: 'Hamilton/Lagrange System',
+            optimization: 'Optimization / Gradient Flow',
+            markov: 'Markov / Probabilistic System',
           },
-          wizardAxB: "Linear system builder (ODE): x' = A x + b",
-          wizardBuildAxB: 'Build Ax+b → Vector eqs',
-          wizardA: 'Matrix A (N lines; columns separated by comma or space)',
-          wizardB: 'Vector b (N elements; separated by comma or space)',
-          wizardXdd: "2nd-order scalar wizard (ODE): x'' = f(x, v, t, params)",
-          wizardBuildXdd: 'Build to N=2 (x1=x, x2=v)',
+          // wizard strings removed
         }
       };
 
@@ -843,17 +1369,35 @@
 
       // Boot-safe running flag (avoid touching runtime before it's initialized)
       let uiIsRunning = false;
+      // Some functions are hoisted and can be called during early preset setup
+      // before render objects/runtime are initialized. Use this guard to avoid TDZ.
+      var renderObjectsReady = false;
+
+      function updateRenderModeOptionLabels(lang) {
+        if (!settings.modeSelect) return;
+        const l = (lang === 'en' || lang === 'vi') ? lang : getCurrentLang();
+        const optLine = settings.modeSelect.querySelector('option[value="Line"]');
+        const optPts = settings.modeSelect.querySelector('option[value="Points"]');
+        if (optPts) optPts.textContent = (l === 'vi') ? 'Điểm' : 'Points';
+
+        // In Algebraic+Implicit context, "Line" actually means Surface (mesh).
+        const isAlgImplicit = String(ui.systemType?.value || '') === 'algebraic'
+          && String(ui.algMode?.value || 'parametric') === 'implicit';
+        if (optLine) {
+          optLine.textContent = isAlgImplicit
+            ? ((l === 'vi') ? 'Bề mặt' : 'Surface')
+            : ((l === 'vi') ? 'Quỹ đạo' : 'Path');
+        }
+      }
 
       function applyLanguage(lang) {
         const d = I18N[lang] || I18N.vi;
         if (ui.panelTitle) ui.panelTitle.textContent = d.panelTitle;
         if (ui.openControls) ui.openControls.textContent = d.openControls;
         if (ui.sectionModel) ui.sectionModel.textContent = d.sectionModel;
-        if (ui.sectionWizards) ui.sectionWizards.textContent = d.sectionWizards;
         if (ui.sectionRun) ui.sectionRun.textContent = d.sectionRun;
 
-        // Basic/Advanced button text depends on current mode
-        if (ui.toggleAdvanced) ui.toggleAdvanced.textContent = ui.panel.classList.contains('basic') ? d.advanced : d.basic;
+        // Basic/Advanced removed
 
         setLabelForControl(ui.systemType, d.systemCategory);
         setLabelForControl(ui.preset, d.preset);
@@ -890,6 +1434,49 @@
         setLabelForControl(ui.params, d.params);
         setLabelForControl(ui.init, d.init);
 
+        // PDE (linear) labels (minimal)
+        if (ui.pdeSection) {
+          const cat = String(ui.systemType?.value || '');
+          const isNl = cat === 'pde_nonlinear';
+          ui.pdeSection.textContent = isNl
+            ? ((lang === 'vi') ? 'PDE – Phi tuyến' : 'PDE – Nonlinear')
+            : ((lang === 'vi') ? 'PDE – Tuyến tính' : 'PDE – Linear');
+        }
+        if (ui.pdeType) setLabelForControl(ui.pdeType, (lang === 'vi') ? 'Loại PDE' : 'PDE type');
+        if (ui.pdeNx) setLabelForControl(ui.pdeNx, 'Nx');
+        if (ui.pdeNy) setLabelForControl(ui.pdeNy, 'Ny');
+        if (ui.pdeXMin) setLabelForControl(ui.pdeXMin, 'x min');
+        if (ui.pdeXMax) setLabelForControl(ui.pdeXMax, 'x max');
+        if (ui.pdeYMin) setLabelForControl(ui.pdeYMin, 'y min');
+        if (ui.pdeYMax) setLabelForControl(ui.pdeYMax, 'y max');
+        if (ui.pdeAlpha) setLabelForControl(ui.pdeAlpha, (lang === 'vi') ? 'α (khuếch tán)' : 'α (diffusivity)');
+        if (ui.pdeBC) setLabelForControl(ui.pdeBC, (lang === 'vi') ? 'Điều kiện biên' : 'Boundary');
+        if (ui.pdeZScale) setLabelForControl(ui.pdeZScale, (lang === 'vi') ? 'Tỉ lệ Z' : 'Z scale');
+        if (ui.pdeU0) setLabelForControl(ui.pdeU0, (lang === 'vi') ? 'Điều kiện đầu u(x,y,t=0)' : 'Initial condition u(x,y,t=0)');
+        if (ui.pdeSource) setLabelForControl(ui.pdeSource, (lang === 'vi') ? 'Nguồn S(x,y,t) (tuỳ chọn)' : 'Source term S(x,y,t) (optional)');
+        if (ui.pdeNonlinear) setLabelForControl(ui.pdeNonlinear, (lang === 'vi') ? 'Hạng phi tuyến N(u,x,y,t) (tuỳ chọn)' : 'Nonlinear term N(u,x,y,t) (optional)');
+
+        // DAE labels (minimal)
+        if (ui.daeSection) ui.daeSection.textContent = 'DAE';
+        if (ui.daeNx) setLabelForControl(ui.daeNx, (lang === 'vi') ? 'Nx (biến vi phân)' : 'Nx (differential vars)');
+        if (ui.daeF) setLabelForControl(ui.daeF, (lang === 'vi') ? "Phương trình vi phân (Nx dòng): x' = f" : "DAE differential eqs (Nx lines): x' = f");
+        if (ui.daeG) setLabelForControl(ui.daeG, (lang === 'vi') ? 'Ràng buộc đại số (Ny dòng): 0 = g' : 'DAE algebraic constraints (Ny lines): 0 = g');
+        if (ui.daeTol) setLabelForControl(ui.daeTol, (lang === 'vi') ? 'Newton tol' : 'Newton tol');
+        if (ui.daeNewtonIters) setLabelForControl(ui.daeNewtonIters, (lang === 'vi') ? 'Newton tối đa' : 'Newton max iters');
+
+        // Algebraic (implicit) labels (minimal)
+        if (ui.algSection) ui.algSection.textContent = (lang === 'vi') ? 'Hệ đại số' : 'Algebraic';
+        if (ui.algMode) setLabelForControl(ui.algMode, (lang === 'vi') ? 'Chế độ đại số' : 'Algebraic mode');
+        if (ui.algF) setLabelForControl(ui.algF, 'F(x,y,z)');
+        if (ui.algIso) setLabelForControl(ui.algIso, 'iso');
+        if (ui.algRes) setLabelForControl(ui.algRes, (lang === 'vi') ? 'độ phân giải (N)' : 'resolution (N)');
+        if (ui.algXMin) setLabelForControl(ui.algXMin, 'x min');
+        if (ui.algXMax) setLabelForControl(ui.algXMax, 'x max');
+        if (ui.algYMin) setLabelForControl(ui.algYMin, 'y min');
+        if (ui.algYMax) setLabelForControl(ui.algYMax, 'y max');
+        if (ui.algZMin) setLabelForControl(ui.algZMin, 'z min');
+        if (ui.algZMax) setLabelForControl(ui.algZMax, 'z max');
+
         // Run labels
         const category = String(ui.systemType?.value || 'ode_nonlinear');
         const engine = categoryToEngineType(category) || 'ode';
@@ -921,22 +1508,6 @@
         if (ui.exportBtn) ui.exportBtn.textContent = d.export;
 
         // Wizard labels/buttons (best-effort)
-        if (ui.buildAxB) ui.buildAxB.textContent = d.wizardBuildAxB;
-        if (ui.buildXdd) ui.buildXdd.textContent = d.wizardBuildXdd;
-        // titles are the nearest previous label of the first element in each wizard block
-        if (ui.axbN) {
-          const row = ui.axbN.closest('.row');
-          const firstLabel = row ? row.querySelector('label') : null;
-          if (firstLabel) firstLabel.textContent = d.wizardAxB;
-        }
-        if (ui.axbA) setPrevLabel(ui.axbA, d.wizardA);
-        if (ui.axbB) setPrevLabel(ui.axbB, d.wizardB);
-        if (ui.xdd) {
-          const row = ui.xdd.closest('.row');
-          const firstLabel = row ? row.querySelector('label') : null;
-          if (firstLabel) firstLabel.textContent = d.wizardXdd;
-        }
-
         if (ui.mainHint) ui.mainHint.textContent = d.hint;
 
         // Settings panel labels (right)
@@ -944,29 +1515,18 @@
         if (settings.langLabel) settings.langLabel.textContent = d.langName;
         if (settings.axesLabel) settings.axesLabel.textContent = (lang === 'vi') ? 'Hiện trục' : 'Show axes';
         if (settings.modeLabel) settings.modeLabel.textContent = (lang === 'vi') ? 'Chế độ vẽ' : 'Render mode';
+        updateRenderModeOptionLabels(lang);
         if (settings.pointSizeLabel) settings.pointSizeLabel.textContent = (lang === 'vi') ? 'Kích thước điểm' : 'Point size';
+        if (settings.camSpeedLabel) settings.camSpeedLabel.textContent = (lang === 'vi') ? 'Tốc độ camera' : 'Camera speed';
+        if (settings.mouseLockLabel) settings.mouseLockLabel.textContent = (lang === 'vi') ? 'Khoá chuột' : 'Mouse lock';
+        if (settings.mouseLockHint) settings.mouseLockHint.textContent = (lang === 'vi')
+          ? 'Bấm Lock để khoá chuột. Di chuyển chuột để xoay camera. Nhấn Esc để thoát.'
+          : 'Click Lock to lock pointer. Move mouse to look around. Press Esc to unlock.';
+        if (settings.mouseSenseLabel) settings.mouseSenseLabel.textContent = (lang === 'vi') ? 'Độ nhạy chuột' : 'Mouse sensitivity';
         if (settings.resetView) settings.resetView.textContent = (lang === 'vi') ? 'Reset góc nhìn' : 'Reset view';
       }
 
-      // ---- Basic/Advanced ----
-      const UI_ADVANCED_KEY = 'sim_ui_advanced';
-      function setAdvanced(isAdvanced) {
-        const adv = !!isAdvanced;
-        ui.panel.classList.toggle('basic', !adv);
-        const d = I18N[getCurrentLang()] || I18N.vi;
-        if (ui.toggleAdvanced) ui.toggleAdvanced.textContent = adv ? d.basic : d.advanced;
-        try { localStorage.setItem(UI_ADVANCED_KEY, adv ? '1' : '0'); } catch (_) {}
-      }
-      function getAdvancedDefault() {
-        try {
-          const v = localStorage.getItem(UI_ADVANCED_KEY);
-          if (v === '1') return true;
-          if (v === '0') return false;
-        } catch (_) {}
-        return false;
-      }
-      setAdvanced(getAdvancedDefault());
-      ui.toggleAdvanced?.addEventListener('click', () => setAdvanced(ui.panel.classList.contains('basic')));
+      // ---- Basic/Advanced removed (always show all controls) ----
       applyLanguage(getCurrentLang());
 
       function syncEqModeUI() {
@@ -1276,8 +1836,9 @@
           steps: '200000',
           transient: '2000',
         },
-        'Parametric: x=y line': {
+        'x=y line (parametric)': {
           // x(t)=t, y(t)=t, z(t)=0
+          category: 'algebraic',
           systemType: 'param',
           dim: '3',
           projX: '1',
@@ -1290,8 +1851,9 @@
           steps: '200000',
           transient: '0',
         },
-        'Parametric: helix': {
+        'Helix (parametric)': {
           // x(t)=cos(t), y(t)=sin(t), z(t)=0.05*t
+          category: 'algebraic',
           systemType: 'param',
           dim: '3',
           projX: '1',
@@ -1302,6 +1864,222 @@
           init: '0, 0, 0',
           dt: '0.02',
           steps: '120000',
+          transient: '0',
+        },
+        'Sphere (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: 'x^2 + y^2 + z^2 - R^2',
+          algIso: '0',
+          algRes: '52',
+          algXMin: '-1.3',
+          algXMax: '1.3',
+          algYMin: '-1.3',
+          algYMax: '1.3',
+          algZMin: '-1.3',
+          algZMax: '1.3',
+          params: 'R=1',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Ellipsoid (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: 'x^2/a^2 + y^2/b^2 + z^2/c^2 - 1',
+          algIso: '0',
+          algRes: '56',
+          algXMin: '-1.6',
+          algXMax: '1.6',
+          algYMin: '-1.6',
+          algYMax: '1.6',
+          algZMin: '-1.6',
+          algZMax: '1.6',
+          params: 'a=1.2\nb=0.9\nc=0.7',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Hyperboloid (1 sheet) (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: 'x^2/a^2 + y^2/b^2 - z^2/c^2 - 1',
+          algIso: '0',
+          algRes: '58',
+          algXMin: '-2',
+          algXMax: '2',
+          algYMin: '-2',
+          algYMax: '2',
+          algZMin: '-2',
+          algZMax: '2',
+          params: 'a=1\nb=1\nc=1.2',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Paraboloid (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: 'z - (x^2/a^2 + y^2/b^2)',
+          algIso: '0',
+          algRes: '60',
+          algXMin: '-1.4',
+          algXMax: '1.4',
+          algYMin: '-1.4',
+          algYMax: '1.4',
+          algZMin: '-0.2',
+          algZMax: '2.2',
+          params: 'a=1\nb=1',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Torus (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: '(x^2+y^2+z^2+R^2-r^2)^2 - 4*R^2*(x^2+y^2)',
+          algIso: '0',
+          algRes: '64',
+          algXMin: '-1.8',
+          algXMax: '1.8',
+          algYMin: '-1.8',
+          algYMax: '1.8',
+          algZMin: '-1.8',
+          algZMax: '1.8',
+          params: 'R=1\nr=0.45',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Fermat surface (degree n) (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: 'x^n + y^n + z^n - 1',
+          algIso: '0',
+          algRes: '64',
+          algXMin: '-1.2',
+          algXMax: '1.2',
+          algYMin: '-1.2',
+          algYMax: '1.2',
+          algZMin: '-1.2',
+          algZMax: '1.2',
+          params: 'n=4',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Clebsch diagonal cubic (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: 'x^3 + y^3 + z^3 - (x+y+z)^3',
+          algIso: '0',
+          algRes: '70',
+          algXMin: '-1.2',
+          algXMax: '1.2',
+          algYMin: '-1.2',
+          algYMax: '1.2',
+          algZMin: '-1.2',
+          algZMax: '1.2',
+          params: '',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Roman surface (Steiner) (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: 'x^2*y^2 + y^2*z^2 + z^2*x^2 - x*y*z',
+          algIso: '0',
+          algRes: '68',
+          algXMin: '-1.2',
+          algXMax: '1.2',
+          algYMin: '-1.2',
+          algYMax: '1.2',
+          algZMin: '-1.2',
+          algZMax: '1.2',
+          params: '',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Gyroid (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          algF: 'sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x)',
+          algIso: '0',
+          algRes: '64',
+          algXMin: '-pi',
+          algXMax: 'pi',
+          algYMin: '-pi',
+          algYMax: 'pi',
+          algZMin: '-pi',
+          algZMax: 'pi',
+          params: '',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Barth Sextic (implicit)': {
+          category: 'algebraic',
+          systemType: 'param',
+          algMode: 'implicit',
+          // One common form of Barth sextic (scaled). phi is the golden ratio.
+          algF: '4*(phi^2*x^2 - y^2)*(phi^2*y^2 - z^2)*(phi^2*z^2 - x^2) - (1 + 2*phi)*(x^2 + y^2 + z^2 - 1)^2',
+          algIso: '0',
+          algRes: '78',
+          algXMin: '-1.6',
+          algXMax: '1.6',
+          algYMin: '-1.6',
+          algYMax: '1.6',
+          algZMin: '-1.6',
+          algZMax: '1.6',
+          params: 'phi=(1+sqrt(5))/2',
+          eqs: '',
+          init: '',
+          dt: '0.01',
+          steps: '1',
+          transient: '0',
+        },
+        'Lissajous Knot (parametric)': {
+          category: 'algebraic',
+          systemType: 'param',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          algMode: 'parametric',
+          eqs: 'x1 = sin(a*t + delta)\nx2 = sin(b*t)\nx3 = sin(c*t)',
+          params: 'a=3\nb=4\nc=5\ndelta=pi/2',
+          init: '0, 0, 0',
+          dt: '0.003',
+          steps: '60000',
           transient: '0',
         },
         'Sprott (1994) — simple chaotic flow #1 (J.C. Sprott)': {
@@ -1346,6 +2124,230 @@
           steps: '260000',
           transient: '4000',
         },
+        'Heat (2D) — Gaussian blob': {
+          category: 'pde_linear',
+          // ODE fields (unused in PDE mode)
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          init: '',
+          params: '',
+          dt: '0.00025',
+          steps: '30000',
+          solver: 'rk4',
+          sigma: '0',
+          // PDE fields
+          pdeType: 'heat2d',
+          pdeNx: '90',
+          pdeNy: '90',
+          pdeXMin: '-1',
+          pdeXMax: '1',
+          pdeYMin: '-1',
+          pdeYMax: '1',
+          pdeAlpha: '0.25',
+          pdeBC: 'dirichlet0',
+          pdeZScale: '1.0',
+          pdeU0: 'exp(-25*(x^2+y^2))',
+          pdeSource: '0',
+        },
+        'Heat (2D) — Periodic sine decay': {
+          category: 'pde_linear',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          init: '',
+          params: '',
+          dt: '0.002',
+          steps: '15000',
+          solver: 'rk4',
+          sigma: '0',
+          pdeType: 'heat2d',
+          pdeNx: '90',
+          pdeNy: '90',
+          pdeXMin: '0',
+          pdeXMax: '2*pi',
+          pdeYMin: '0',
+          pdeYMax: '2*pi',
+          pdeAlpha: '0.2',
+          pdeBC: 'periodic',
+          pdeZScale: '1.0',
+          pdeU0: 'sin(x)*sin(y)',
+          pdeSource: '0',
+        },
+        'Heat (2D) — Center source': {
+          category: 'pde_linear',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          init: '',
+          params: '',
+          dt: '0.0003',
+          steps: '25000',
+          solver: 'rk4',
+          sigma: '0',
+          pdeType: 'heat2d',
+          pdeNx: '90',
+          pdeNy: '90',
+          pdeXMin: '-1',
+          pdeXMax: '1',
+          pdeYMin: '-1',
+          pdeYMax: '1',
+          pdeAlpha: '0.18',
+          pdeBC: 'dirichlet0',
+          pdeZScale: '1.0',
+          pdeU0: '0',
+          pdeSource: '3*exp(-40*(x^2+y^2))',
+        },
+        'Reaction–Diffusion (2D) — Fisher-KPP': {
+          category: 'pde_nonlinear',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          init: '',
+          params: 'r=2.0',
+          dt: '0.00025',
+          steps: '30000',
+          solver: 'rk4',
+          sigma: '0',
+          pdeType: 'heat2d',
+          pdeNx: '90',
+          pdeNy: '90',
+          pdeXMin: '-1',
+          pdeXMax: '1',
+          pdeYMin: '-1',
+          pdeYMax: '1',
+          pdeAlpha: '0.08',
+          pdeBC: 'neumann0',
+          pdeZScale: '1.0',
+          pdeU0: '0.15*exp(-35*(x^2+y^2))',
+          pdeSource: '0',
+          pdeNonlinear: 'r*u*(1-u)',
+        },
+        'Reaction–Diffusion (2D) — Allen–Cahn': {
+          category: 'pde_nonlinear',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          init: '',
+          params: '',
+          dt: '0.0002',
+          steps: '32000',
+          solver: 'rk4',
+          sigma: '0',
+          pdeType: 'heat2d',
+          pdeNx: '90',
+          pdeNy: '90',
+          pdeXMin: '-1',
+          pdeXMax: '1',
+          pdeYMin: '-1',
+          pdeYMax: '1',
+          pdeAlpha: '0.06',
+          pdeBC: 'neumann0',
+          pdeZScale: '1.0',
+          pdeU0: '0.6*(sin(3*x)+sin(3*y))',
+          pdeSource: '0',
+          pdeNonlinear: 'u - u^3',
+        },
+        "DAE — x'=-x+y, 0=y-x^2": {
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: '',
+          // state is [x1, y1] => x1 is differential, x2 is algebraic
+          init: '0.2, 0.04',
+          dt: '0.01',
+          steps: '120000',
+          transient: '2000',
+          solver: 'euler',
+          daeNx: '1',
+          daeF: "x1' = -x1 + x2",
+          daeG: "0 = x2 - x1^2",
+          daeTol: '1e-10',
+          daeNewtonIters: '12',
+        },
+        'Hybrid — Integrate-and-Fire Neuron (v, spike)': {
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '2',
+          projX: '1',
+          projY: '2',
+          projZ: '1',
+          // Leaky integrate-and-fire (continuous ODE) + hybrid event/reset:
+          // dv/dt = -(v - v_rest)/tau + I
+          // spike decays between events
+          eqs: "x1' = -(x1 - v_rest)/tau + I\nx2' = -x2/tauS",
+          hybridEvent: 'x1 >= v_th',
+          hybridReset: "x1 = v_reset\nx2 = spikeAmp",
+          params: [
+            'tau=10',
+            'v_rest=-65',
+            'v_reset=-70',
+            'v_th=-50',
+            'I=2',
+            'spikeAmp=1',
+            'tauS=5',
+          ].join('\n'),
+          init: '-65, 0',
+          dt: '0.05',
+          steps: '120000',
+          transient: '0',
+          solver: 'rk4',
+        },
+        'Hamilton — simple pendulum (q,p)': {
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '2',
+          projX: '1',
+          projY: '2',
+          projZ: '1',
+          // H(q,p)=p^2/2 + (1-cos(q)) => q'=p, p'=-sin(q)
+          eqs: "x1' = x2\nx2' = -sin(x1)",
+          params: '',
+          init: '1.2, 0.0',
+          dt: '0.01',
+          steps: '220000',
+          transient: '2000',
+          solver: 'rk4',
+        },
+        'Gradient flow — Rosenbrock (2D)': {
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '2',
+          projX: '1',
+          projY: '2',
+          projZ: '1',
+          // f(x,y)=(1-x)^2 + 100(y-x^2)^2 ; x'=-df/dx, y'=-df/dy
+          eqs: "x1' = 2*(1-x1) + 400*x1*(x2 - x1^2)\nx2' = -200*(x2 - x1^2)",
+          params: '',
+          init: '-1.2, 1.0',
+          dt: '0.001',
+          steps: '200000',
+          transient: '0',
+          solver: 'rk4',
+        },
+        'Markov — 3-state distribution (map)': {
+          category: 'markov',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          // x_{n+1} = P x_n (column-vector convention)
+          eqs: "x1 = 0.90*x1 + 0.10*x2 + 0.05*x3\nx2 = 0.07*x1 + 0.80*x2 + 0.15*x3\nx3 = 0.03*x1 + 0.10*x2 + 0.80*x3",
+          params: '',
+          init: '1, 0, 0',
+          dt: '1',
+          steps: '120000',
+          transient: '0',
+          solver: 'rk4',
+        },
         'Custom': {
           dx: 'sigma*(y-x)',
           dy: 'x*(rho-z)-y',
@@ -1366,11 +2368,18 @@
       const SAVED_PRESETS_KEY = 'ode_saved_presets_v1';
       const DEFAULT_PRESET_KEY = 'Lorenz (1963) — Edward Lorenz / “butterfly”';
       const DEFAULT_PRESET_BY_TYPE = {
-        algebraic: 'Parametric: x=y line',
+        algebraic: 'x=y line (parametric)',
         ode_linear: 'Linear ODE — damped oscillator (2D)',
         ode_nonlinear: DEFAULT_PRESET_KEY,
         map: 'Henon map (Hénon 1976) — discrete-time',
         stochastic: 'Noisy Lorenz (SDE) — Lorenz + Gaussian noise',
+        pde_linear: 'Heat (2D) — Gaussian blob',
+        pde_nonlinear: 'Reaction–Diffusion (2D) — Fisher-KPP',
+        dae: 'DAE — x\'=-x+y, 0=y-x^2',
+        hybrid: 'Hybrid — Integrate-and-Fire Neuron (v, spike)',
+        hamilton: 'Hamilton — simple pendulum (q,p)',
+        optimization: 'Gradient flow — Rosenbrock (2D)',
+        markov: 'Markov — 3-state distribution (map)',
       };
 
       function categoryToEngineType(category) {
@@ -1379,6 +2388,13 @@
         if (c === 'stochastic') return 'sde';
         if (c === 'algebraic') return 'param'; // currently: explicit parametric curve sampling
         if (c === 'ode_linear' || c === 'ode_nonlinear') return 'ode';
+        if (c === 'pde_linear') return 'pde';
+        if (c === 'pde_nonlinear') return 'pde';
+        if (c === 'dae') return 'dae';
+        if (c === 'hybrid') return 'hybrid';
+        if (c === 'hamilton') return 'ode';
+        if (c === 'optimization') return 'ode';
+        if (c === 'markov') return 'map';
         return null; // not implemented yet
       }
 
@@ -1387,6 +2403,8 @@
         if (t === 'map') return 'map';
         if (t === 'sde') return 'stochastic';
         if (t === 'param') return 'algebraic';
+        if (t === 'pde') return 'pde_linear';
+        if (t === 'dae') return 'dae';
         return 'ode_nonlinear';
       }
 
@@ -1453,6 +2471,40 @@
             projX: String(item.projX ?? ''),
             projY: String(item.projY ?? ''),
             projZ: String(item.projZ ?? ''),
+            // PDE (linear)
+            pdeType: String(item.pdeType ?? ''),
+            pdeNx: String(item.pdeNx ?? ''),
+            pdeNy: String(item.pdeNy ?? ''),
+            pdeXMin: String(item.pdeXMin ?? ''),
+            pdeXMax: String(item.pdeXMax ?? ''),
+            pdeYMin: String(item.pdeYMin ?? ''),
+            pdeYMax: String(item.pdeYMax ?? ''),
+            pdeAlpha: String(item.pdeAlpha ?? ''),
+            pdeBC: String(item.pdeBC ?? ''),
+            pdeZScale: String(item.pdeZScale ?? ''),
+            pdeU0: String(item.pdeU0 ?? ''),
+            pdeSource: String(item.pdeSource ?? ''),
+            pdeNonlinear: String(item.pdeNonlinear ?? ''),
+            // DAE
+            daeNx: String(item.daeNx ?? ''),
+            daeF: String(item.daeF ?? ''),
+            daeG: String(item.daeG ?? ''),
+            daeTol: String(item.daeTol ?? ''),
+            daeNewtonIters: String(item.daeNewtonIters ?? ''),
+            // Algebraic implicit
+            algMode: String(item.algMode ?? ''),
+            algF: String(item.algF ?? ''),
+            algIso: String(item.algIso ?? ''),
+            algRes: String(item.algRes ?? ''),
+            algXMin: String(item.algXMin ?? ''),
+            algXMax: String(item.algXMax ?? ''),
+            algYMin: String(item.algYMin ?? ''),
+            algYMax: String(item.algYMax ?? ''),
+            algZMin: String(item.algZMin ?? ''),
+            algZMax: String(item.algZMax ?? ''),
+            // Hybrid
+            hybridEvent: String(item.hybridEvent ?? ''),
+            hybridReset: String(item.hybridReset ?? ''),
           };
         }
         return out;
@@ -1516,20 +2568,54 @@
         if (p.projY != null && ui.projY) ui.projY.value = p.projY;
         if (p.projZ != null && ui.projZ) ui.projZ.value = p.projZ;
         if (p.eqs != null && ui.eqs) ui.eqs.value = p.eqs;
-        ui.dx.value = p.dx;
-        ui.dy.value = p.dy;
-        ui.dz.value = p.dz;
-        ui.params.value = p.params;
-        ui.init.value = p.init;
-        ui.dt.value = p.dt;
+        ui.dx.value = String(p.dx ?? '');
+        ui.dy.value = String(p.dy ?? '');
+        ui.dz.value = String(p.dz ?? '');
+        ui.params.value = String(p.params ?? '');
+        ui.init.value = String(p.init ?? '');
+        ui.dt.value = String(p.dt ?? '');
         if (p.absTol != null && ui.absTol) ui.absTol.value = p.absTol;
         if (p.relTol != null && ui.relTol) ui.relTol.value = p.relTol;
         if (p.dtMin != null && ui.dtMin) ui.dtMin.value = p.dtMin;
         if (p.dtMax != null && ui.dtMax) ui.dtMax.value = p.dtMax;
-        ui.steps.value = p.steps;
+        ui.steps.value = String(p.steps ?? '');
         if (p.solver && ui.solver) ui.solver.value = p.solver;
         if (ui.systemType) ui.systemType.value = getPresetCategory(p);
         if (p.sigma != null && ui.sigma) ui.sigma.value = p.sigma;
+        // PDE (linear)
+        if (p.pdeType != null && ui.pdeType) ui.pdeType.value = String(p.pdeType);
+        if (p.pdeNx != null && ui.pdeNx) ui.pdeNx.value = String(p.pdeNx);
+        if (p.pdeNy != null && ui.pdeNy) ui.pdeNy.value = String(p.pdeNy);
+        if (p.pdeXMin != null && ui.pdeXMin) ui.pdeXMin.value = String(p.pdeXMin);
+        if (p.pdeXMax != null && ui.pdeXMax) ui.pdeXMax.value = String(p.pdeXMax);
+        if (p.pdeYMin != null && ui.pdeYMin) ui.pdeYMin.value = String(p.pdeYMin);
+        if (p.pdeYMax != null && ui.pdeYMax) ui.pdeYMax.value = String(p.pdeYMax);
+        if (p.pdeAlpha != null && ui.pdeAlpha) ui.pdeAlpha.value = String(p.pdeAlpha);
+        if (p.pdeBC != null && ui.pdeBC) ui.pdeBC.value = String(p.pdeBC);
+        if (p.pdeZScale != null && ui.pdeZScale) ui.pdeZScale.value = String(p.pdeZScale);
+        if (p.pdeU0 != null && ui.pdeU0) ui.pdeU0.value = String(p.pdeU0);
+        if (p.pdeSource != null && ui.pdeSource) ui.pdeSource.value = String(p.pdeSource);
+        if (p.pdeNonlinear != null && ui.pdeNonlinear) ui.pdeNonlinear.value = String(p.pdeNonlinear);
+        // DAE
+        if (p.daeNx != null && ui.daeNx) ui.daeNx.value = String(p.daeNx);
+        if (p.daeF != null && ui.daeF) ui.daeF.value = String(p.daeF);
+        if (p.daeG != null && ui.daeG) ui.daeG.value = String(p.daeG);
+        if (p.daeTol != null && ui.daeTol) ui.daeTol.value = String(p.daeTol);
+        if (p.daeNewtonIters != null && ui.daeNewtonIters) ui.daeNewtonIters.value = String(p.daeNewtonIters);
+        // Hybrid
+        if (p.hybridEvent != null && ui.hybridEvent) ui.hybridEvent.value = String(p.hybridEvent);
+        if (p.hybridReset != null && ui.hybridReset) ui.hybridReset.value = String(p.hybridReset);
+        // Algebraic implicit
+        if (p.algMode != null && ui.algMode) ui.algMode.value = String(p.algMode);
+        if (p.algF != null && ui.algF) ui.algF.value = String(p.algF);
+        if (p.algIso != null && ui.algIso) ui.algIso.value = String(p.algIso);
+        if (p.algRes != null && ui.algRes) ui.algRes.value = String(p.algRes);
+        if (p.algXMin != null && ui.algXMin) ui.algXMin.value = String(p.algXMin);
+        if (p.algXMax != null && ui.algXMax) ui.algXMax.value = String(p.algXMax);
+        if (p.algYMin != null && ui.algYMin) ui.algYMin.value = String(p.algYMin);
+        if (p.algYMax != null && ui.algYMax) ui.algYMax.value = String(p.algYMax);
+        if (p.algZMin != null && ui.algZMin) ui.algZMin.value = String(p.algZMin);
+        if (p.algZMax != null && ui.algZMax) ui.algZMax.value = String(p.algZMax);
         // If preset provides vector equations, prefer vector mode
         if (ui.eqMode) {
           const hasVec = !!(p.eqs && String(p.eqs).trim());
@@ -1571,6 +2657,40 @@
           dtMax: ui.dtMax?.value ?? '',
           steps: ui.steps.value,
           solver: ui.solver.value,
+          // PDE (linear)
+          pdeType: ui.pdeType?.value ?? '',
+          pdeNx: ui.pdeNx?.value ?? '',
+          pdeNy: ui.pdeNy?.value ?? '',
+          pdeXMin: ui.pdeXMin?.value ?? '',
+          pdeXMax: ui.pdeXMax?.value ?? '',
+          pdeYMin: ui.pdeYMin?.value ?? '',
+          pdeYMax: ui.pdeYMax?.value ?? '',
+          pdeAlpha: ui.pdeAlpha?.value ?? '',
+          pdeBC: ui.pdeBC?.value ?? '',
+          pdeZScale: ui.pdeZScale?.value ?? '',
+          pdeU0: ui.pdeU0?.value ?? '',
+          pdeSource: ui.pdeSource?.value ?? '',
+          pdeNonlinear: ui.pdeNonlinear?.value ?? '',
+          // DAE
+          daeNx: ui.daeNx?.value ?? '',
+          daeF: ui.daeF?.value ?? '',
+          daeG: ui.daeG?.value ?? '',
+          daeTol: ui.daeTol?.value ?? '',
+          daeNewtonIters: ui.daeNewtonIters?.value ?? '',
+          // Algebraic implicit
+          algMode: ui.algMode?.value ?? '',
+          algF: ui.algF?.value ?? '',
+          algIso: ui.algIso?.value ?? '',
+          algRes: ui.algRes?.value ?? '',
+          algXMin: ui.algXMin?.value ?? '',
+          algXMax: ui.algXMax?.value ?? '',
+          algYMin: ui.algYMin?.value ?? '',
+          algYMax: ui.algYMax?.value ?? '',
+          algZMin: ui.algZMin?.value ?? '',
+          algZMax: ui.algZMax?.value ?? '',
+          // Hybrid
+          hybridEvent: ui.hybridEvent?.value ?? '',
+          hybridReset: ui.hybridReset?.value ?? '',
         };
       }
 
@@ -1613,9 +2733,59 @@
       setPreset(ui.preset.value);
       updatePresetButtons();
 
+      // ---- Algebraic: auto-switch preset when algMode changes (remember last per mode) ----
+      const ALG_LAST_PARAM_KEY = 'sim_alg_last_preset_param';
+      const ALG_LAST_IMPLICIT_KEY = 'sim_alg_last_preset_implicit';
+      function getAlgMode() {
+        return String(ui.algMode?.value || 'parametric');
+      }
+      function getAlgLastKey(mode) {
+        return (mode === 'implicit') ? ALG_LAST_IMPLICIT_KEY : ALG_LAST_PARAM_KEY;
+      }
+      function rememberAlgPreset(presetName) {
+        try {
+          const mode = getAlgMode();
+          localStorage.setItem(getAlgLastKey(mode), String(presetName || ''));
+        } catch (_) {}
+      }
+      function isAlgebraicPresetMatching(name, mode) {
+        const p = presets[name];
+        if (!p) return false;
+        if (getPresetCategory(p) !== 'algebraic') return false;
+        const pm = String(p.algMode || 'parametric');
+        return pm === mode;
+      }
+      function pickAlgebraicPresetForMode(mode) {
+        // 1) use last used for that mode, if still exists
+        try {
+          const last = localStorage.getItem(getAlgLastKey(mode));
+          if (last && isAlgebraicPresetMatching(last, mode)) return last;
+        } catch (_) {}
+        // 2) fallbacks
+        if (mode === 'implicit') {
+          if (isAlgebraicPresetMatching('Sphere (implicit)', 'implicit')) return 'Sphere (implicit)';
+          // any implicit algebraic preset
+          for (const name of Object.keys(presets)) {
+            if (isAlgebraicPresetMatching(name, 'implicit')) return name;
+          }
+        } else {
+          if (isAlgebraicPresetMatching('Lissajous Knot (parametric)', 'parametric')) return 'Lissajous Knot (parametric)';
+          if (isAlgebraicPresetMatching('x=y line (parametric)', 'parametric')) return 'x=y line (parametric)';
+          for (const name of Object.keys(presets)) {
+            if (isAlgebraicPresetMatching(name, 'parametric')) return name;
+          }
+        }
+        return ui.preset.value;
+      }
+
       ui.systemType?.addEventListener('change', () => {
         // Switching system type changes which presets are visible.
         populatePresetDropdown(ui.preset.value);
+        // If switching to algebraic, keep per-mode last preset (parametric vs implicit).
+        if (String(ui.systemType?.value || '') === 'algebraic') {
+          const want = pickAlgebraicPresetForMode(getAlgMode());
+          if (want && Array.from(ui.preset.options).some(o => o.value === want)) ui.preset.value = want;
+        }
         setPreset(ui.preset.value);
         updatePresetButtons();
         syncSystemTypeUI();
@@ -1624,6 +2794,8 @@
       ui.preset.addEventListener('change', () => {
         setPreset(ui.preset.value);
         updatePresetButtons();
+        // Remember last algebraic preset per mode
+        if (String(ui.systemType?.value || '') === 'algebraic') rememberAlgPreset(ui.preset.value);
       });
       ui.presetSearch?.addEventListener('input', () => {
         populatePresetDropdown(ui.preset.value);
@@ -1666,6 +2838,126 @@
         return out;
       }
 
+      function parseInitForN(text, n) {
+        const parts = String(text || '').split(',').map(s => s.trim()).filter(Boolean);
+        const dim = Math.max(1, n | 0);
+        const out = new Float64Array(dim);
+        for (let i = 0; i < dim; i++) {
+          const v = (i < parts.length) ? Number(parts[i]) : 0;
+          if (!Number.isFinite(v)) throw new Error('Initial values must be numbers.');
+          out[i] = v;
+        }
+        return out;
+      }
+
+      function parseHybridResetRules(text, dim) {
+        const lines = String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const targets = [];
+        const exprs = [];
+        for (let i = 0; i < lines.length; i++) {
+          const raw = lines[i].replace(/(#|\/\/).*$/, '').trim();
+          if (!raw) continue;
+          const m = raw.match(/^([A-Za-z]\w*)\s*=\s*(.+)$/);
+          if (!m) throw new Error(`Hybrid reset line ${i + 1}: expected "x1 = expr" but got "${lines[i]}"`);
+          const lhs = m[1];
+          const rhs = m[2];
+          let idx = null;
+          if (/^x\d+$/i.test(lhs)) {
+            idx = parseInt(lhs.slice(1), 10) - 1;
+          } else if (lhs.toLowerCase() === 'x') idx = 0;
+          else if (lhs.toLowerCase() === 'y') idx = 1;
+          else if (lhs.toLowerCase() === 'z') idx = 2;
+          if (idx == null || !(idx >= 0 && idx < dim)) {
+            throw new Error(`Hybrid reset line ${i + 1}: unknown target "${lhs}" (use x1..x${dim}).`);
+          }
+          targets.push(idx);
+          exprs.push(math.compile(rhs));
+        }
+        if (!targets.length) throw new Error('Hybrid reset rules must not be empty.');
+        return { targets, exprs };
+      }
+
+      function evalBoolExpr(compiledExpr, tValue, stateArr, dim) {
+        fillScopeFromArray(tValue, stateArr, dim);
+        const s = runtime.scope;
+        let v;
+        try { v = compiledExpr.evaluate(s); } catch (_) { return null; }
+        if (typeof v === 'boolean') return v;
+        if (typeof v === 'number') return Number.isFinite(v) ? (v !== 0) : null;
+        return null;
+      }
+
+      function evalVecAtState(out, tValue, stateArr, dim, compiled) {
+        fillScopeFromArray(tValue, stateArr, dim);
+        const exprs = compiled.compiled;
+        for (let i = 0; i < dim; i++) {
+          let v;
+          try { v = exprs[i].evaluate(runtime.scope); } catch (_) { return false; }
+          if (!isFiniteNumber(v)) return false;
+          out[i] = v;
+        }
+        return true;
+      }
+
+      function ensureHybridScratch(dim) {
+        const d = dim | 0;
+        const hs = runtime.hybrid;
+        if (hs._scratchDim === d && hs._scratch) return hs._scratch;
+        const scratch = {
+          stateA: new Float64Array(d),
+          stateB: new Float64Array(d),
+          stateLo: new Float64Array(d),
+          k1: new Float64Array(d),
+          k2: new Float64Array(d),
+          k3: new Float64Array(d),
+          k4: new Float64Array(d),
+          tmp: new Float64Array(d),
+        };
+        hs._scratchDim = d;
+        hs._scratch = scratch;
+        return scratch;
+      }
+
+      function eulerStepInto(out, state0, t0, h, dim, compiled, scratch) {
+        if (!evalVecAtState(scratch.k1, t0, state0, dim, compiled)) return false;
+        for (let i = 0; i < dim; i++) out[i] = state0[i] + h * scratch.k1[i];
+        return true;
+      }
+
+      function rk4StepInto(out, state0, t0, h, dim, compiled, scratch) {
+        const k1l = scratch.k1, k2l = scratch.k2, k3l = scratch.k3, k4l = scratch.k4, tmp = scratch.tmp;
+        if (!evalVecAtState(k1l, t0, state0, dim, compiled)) return false;
+        for (let i = 0; i < dim; i++) tmp[i] = state0[i] + 0.5 * h * k1l[i];
+        if (!evalVecAtState(k2l, t0 + 0.5 * h, tmp, dim, compiled)) return false;
+        for (let i = 0; i < dim; i++) tmp[i] = state0[i] + 0.5 * h * k2l[i];
+        if (!evalVecAtState(k3l, t0 + 0.5 * h, tmp, dim, compiled)) return false;
+        for (let i = 0; i < dim; i++) tmp[i] = state0[i] + h * k3l[i];
+        if (!evalVecAtState(k4l, t0 + h, tmp, dim, compiled)) return false;
+        const h6 = h / 6;
+        for (let i = 0; i < dim; i++) out[i] = state0[i] + h6 * (k1l[i] + 2 * k2l[i] + 2 * k3l[i] + k4l[i]);
+        return true;
+      }
+
+      function integrateInto(out, state0, t0, h, dim, compiled, solver, scratch) {
+        const s = String(solver || 'rk4');
+        if (s === 'euler') return eulerStepInto(out, state0, t0, h, dim, compiled, scratch);
+        return rk4StepInto(out, state0, t0, h, dim, compiled, scratch);
+      }
+
+      function applyHybridReset(stateArr, dim) {
+        const targets = runtime.hybrid.resetTargets;
+        const exprs = runtime.hybrid.resetExprs;
+        if (!targets || !exprs) return false;
+        fillScopeFromArray(runtime.t, stateArr, dim);
+        for (let i = 0; i < targets.length; i++) {
+          let v;
+          try { v = exprs[i].evaluate(runtime.scope); } catch (_) { return false; }
+          if (!isFiniteNumber(v)) return false;
+          stateArr[targets[i]] = v;
+        }
+        return true;
+      }
+
       function parseIntStrict(text, label) {
         const v = Number(String(text || '').trim());
         if (!Number.isFinite(v)) throw new Error(`${label} is not a number.`);
@@ -1677,6 +2969,18 @@
         const v = Number(String(text || '').trim());
         if (!Number.isFinite(v)) throw new Error(`${label} is not a number.`);
         return v;
+      }
+
+      function parseFloatExpr(text, label, scope) {
+        const s = String(text || '').trim();
+        if (!s) throw new Error(`${label} is empty.`);
+        try {
+          const v = math.evaluate(s, { pi: Math.PI, e: Math.E, ...(scope || {}) });
+          if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error('not a finite number');
+          return v;
+        } catch (err) {
+          throw new Error(`${label} is not a number.`);
+        }
       }
 
       function compileSystemEquations() {
@@ -1723,6 +3027,41 @@
         return { n, compiled };
       }
 
+      function compileDAE() {
+        const stripPrefix = (line) => {
+          let s = String(line || '').trim();
+          s = s.replace(/(#|\/\/).*$/, '').trim();
+          if (!s) return '';
+          const eqIdx = s.indexOf('=');
+          if (eqIdx >= 0) {
+            s = s.slice(eqIdx + 1).trim();
+            return s;
+          }
+          // remove leading "0" if user writes "0 g(...)" without '='
+          s = s.replace(/^0\s+/, '').trim();
+          return s;
+        };
+
+        const nx = Math.max(1, parseIntStrict(ui.daeNx?.value ?? '1', 'Nx'));
+        const fLines = String(ui.daeF?.value || '').split(/\r?\n/).map(stripPrefix).filter(Boolean);
+        if (fLines.length < nx) throw new Error(`DAE: need at least ${nx} non-empty differential lines.`);
+        const f = [];
+        for (let i = 0; i < nx; i++) f.push(math.compile(fLines[i]));
+
+        const gLines = String(ui.daeG?.value || '').split(/\r?\n/).map(stripPrefix).filter(Boolean);
+        const ny = gLines.length;
+        if (ny < 1) throw new Error('DAE: need at least 1 algebraic constraint line.');
+        const g = [];
+        for (let i = 0; i < ny; i++) g.push(math.compile(gLines[i]));
+
+        const dim = nx + ny;
+        const tol = parseFloatStrict(ui.daeTol?.value ?? '1e-8', 'Newton tol');
+        const maxIters = parseIntStrict(ui.daeNewtonIters?.value ?? '12', 'Newton max iters');
+        if (!(tol > 0)) throw new Error('Newton tol must be > 0.');
+        if (!(maxIters >= 1)) throw new Error('Newton max iters must be >= 1.');
+        return { nx, ny, dim, f, g, tol, maxIters };
+      }
+
       // ---- Renderer (dynamic BufferGeometry) ----
       const pathGeometry = new THREE.BufferGeometry();
       const lineMaterial = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95 });
@@ -1734,11 +3073,29 @@
       scene.add(pathLine);
       scene.add(pathPoints);
 
+      // ---- PDE surface (u(x,y) height field) ----
+      const pdeSurface = {
+        mesh: null,
+        geometry: null,
+        positions: null,
+        colors: null,
+        nx: 0,
+        ny: 0,
+      };
+
+      // ---- Implicit surface (F(x,y,z)=iso) ----
+      const implicitSurface = {
+        mesh: null,
+        geometry: null,
+        points: null,
+        pointsMaterial: null,
+      };
+
       // ---- Runtime state ----
       const runtime = {
         running: false,
         solver: 'rk4',
-        systemType: 'ode', // 'ode' | 'map' | 'sde'
+        systemType: 'ode', // 'ode' | 'map' | 'sde' | 'param' | 'pde'
         sigma: 0,
         dim: 3,
         proj: [0, 1, 2], // 0-based indices into state
@@ -1765,7 +3122,47 @@
         positions: null,
         colors: null,
         scope: { x: 0, y: 0, z: 0, t: 0, pi: Math.PI, e: Math.E },
+        // PDE runtime (only when systemType==='pde')
+        pde: {
+          type: 'heat2d',
+          nx: 0,
+          ny: 0,
+          xmin: -1,
+          xmax: 1,
+          ymin: -1,
+          ymax: 1,
+          dx: 0,
+          dy: 0,
+          alpha: 0.25,
+          bc: 'dirichlet0',
+          zScale: 1,
+          u: null,
+          uNext: null,
+          u0: null,
+          source: null,
+          sourceIsZero: true,
+          nonlinear: null,
+          nonlinearIsZero: true,
+          uMin: 0,
+          uMax: 0,
+        },
+        // DAE runtime (only when systemType==='dae')
+        dae: {
+          nx: 0,
+          ny: 0,
+          f: null, // math.CompiledExpression[]
+          g: null, // math.CompiledExpression[]
+          tol: 1e-8,
+          maxIters: 12,
+        },
+        hybrid: {
+          cond: null,              // math.CompiledExpression
+          resetTargets: null,      // number[]
+          resetExprs: null,        // math.CompiledExpression[]
+          maxEventsPerStep: 6,
+        },
       };
+      renderObjectsReady = true;
 
       function hslToRgb(h, s, l) {
         // h in [0,1]
@@ -1806,6 +3203,307 @@
         pathGeometry.setAttribute('color', new THREE.BufferAttribute(runtime.colors, 3));
         pathGeometry.setDrawRange(0, 0);
         // Bounding volumes will be computed after we have valid points.
+      }
+
+      function disposePdeSurface() {
+        if (pdeSurface.mesh) scene.remove(pdeSurface.mesh);
+        if (pdeSurface.geometry) pdeSurface.geometry.dispose();
+        if (pdeSurface.mesh && pdeSurface.mesh.material) {
+          // material can be an array, but we only use a single material here
+          pdeSurface.mesh.material.dispose?.();
+        }
+        pdeSurface.mesh = null;
+        pdeSurface.geometry = null;
+        pdeSurface.positions = null;
+        pdeSurface.colors = null;
+        pdeSurface.nx = 0;
+        pdeSurface.ny = 0;
+      }
+
+      function disposeImplicitSurface() {
+        if (implicitSurface.mesh) scene.remove(implicitSurface.mesh);
+        if (implicitSurface.points) scene.remove(implicitSurface.points);
+        if (implicitSurface.geometry) implicitSurface.geometry.dispose();
+        if (implicitSurface.mesh && implicitSurface.mesh.material) {
+          implicitSurface.mesh.material.dispose?.();
+        }
+        if (implicitSurface.pointsMaterial) implicitSurface.pointsMaterial.dispose?.();
+        implicitSurface.mesh = null;
+        implicitSurface.geometry = null;
+        implicitSurface.points = null;
+        implicitSurface.pointsMaterial = null;
+      }
+
+      function ensurePdeSurfaceGeometry(nx, ny, xmin, xmax, ymin, ymax) {
+        const wantNx = Math.max(2, nx | 0);
+        const wantNy = Math.max(2, ny | 0);
+        if (pdeSurface.geometry && pdeSurface.nx === wantNx && pdeSurface.ny === wantNy) {
+          return;
+        }
+        disposePdeSurface();
+
+        const nVerts = wantNx * wantNy;
+        const positions = new Float32Array(nVerts * 3);
+        const colors = new Float32Array(nVerts * 3);
+
+        const xSpan = (xmax - xmin);
+        const ySpan = (ymax - ymin);
+        for (let j = 0; j < wantNy; j++) {
+          const y = ymin + (wantNy === 1 ? 0 : (j / (wantNy - 1)) * ySpan);
+          for (let i = 0; i < wantNx; i++) {
+            const x = xmin + (wantNx === 1 ? 0 : (i / (wantNx - 1)) * xSpan);
+            const idx = i + wantNx * j;
+            const p = idx * 3;
+            positions[p + 0] = x;
+            positions[p + 1] = y;
+            positions[p + 2] = 0;
+            colors[p + 0] = 0.2;
+            colors[p + 1] = 0.4;
+            colors[p + 2] = 1.0;
+          }
+        }
+
+        const nTris = (wantNx - 1) * (wantNy - 1) * 2;
+        const indices = new Uint16Array(nTris * 3);
+        let w = 0;
+        for (let j = 0; j < wantNy - 1; j++) {
+          for (let i = 0; i < wantNx - 1; i++) {
+            const a = i + wantNx * j;
+            const b = (i + 1) + wantNx * j;
+            const c = i + wantNx * (j + 1);
+            const d = (i + 1) + wantNx * (j + 1);
+            // two triangles: a-c-b and b-c-d (consistent winding)
+            indices[w++] = a; indices[w++] = c; indices[w++] = b;
+            indices[w++] = b; indices[w++] = c; indices[w++] = d;
+          }
+        }
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        geom.setIndex(new THREE.BufferAttribute(indices, 1));
+        geom.computeBoundingSphere();
+
+        const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.98 });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.visible = false;
+        scene.add(mesh);
+
+        pdeSurface.mesh = mesh;
+        pdeSurface.geometry = geom;
+        pdeSurface.positions = positions;
+        pdeSurface.colors = colors;
+        pdeSurface.nx = wantNx;
+        pdeSurface.ny = wantNy;
+      }
+
+      function updatePdeSurfaceFromField(nx, ny, u, zScale) {
+        if (!pdeSurface.geometry || !pdeSurface.positions || !pdeSurface.colors) return;
+        if (!u) return;
+        if (pdeSurface.nx !== nx || pdeSurface.ny !== ny) return;
+
+        // min/max for color mapping
+        let uMin = Infinity;
+        let uMax = -Infinity;
+        const n = nx * ny;
+        for (let k = 0; k < n; k++) {
+          const v = u[k];
+          if (v < uMin) uMin = v;
+          if (v > uMax) uMax = v;
+        }
+        if (!Number.isFinite(uMin) || !Number.isFinite(uMax)) { uMin = 0; uMax = 1; }
+        const span = (uMax - uMin) || 1;
+
+        for (let k = 0; k < n; k++) {
+          const v = u[k];
+          const p = k * 3;
+          pdeSurface.positions[p + 2] = (Number.isFinite(v) ? v : 0) * zScale;
+          const f = Math.max(0, Math.min(1, (v - uMin) / span));
+          // blue (240deg) -> red (0deg)
+          const h = (240 * (1 - f)) / 360;
+          const [r, g, b] = hslToRgb(h, 1, 0.55);
+          pdeSurface.colors[p + 0] = r;
+          pdeSurface.colors[p + 1] = g;
+          pdeSurface.colors[p + 2] = b;
+        }
+
+        runtime.pde.uMin = uMin;
+        runtime.pde.uMax = uMax;
+
+        pdeSurface.geometry.attributes.position.needsUpdate = true;
+        pdeSurface.geometry.attributes.color.needsUpdate = true;
+        pdeSurface.geometry.computeBoundingSphere();
+      }
+
+      function buildImplicitSurfaceGeometry(exprText, isoValue, bounds, resN, params) {
+        const N = Math.max(10, Math.min(140, Math.floor(resN || 40)));
+        const xmin = bounds.xmin, xmax = bounds.xmax;
+        const ymin = bounds.ymin, ymax = bounds.ymax;
+        const zmin = bounds.zmin, zmax = bounds.zmax;
+        const f = math.compile(exprText);
+        const scope = { ...(params || {}), pi: Math.PI, e: Math.E, t: 0, x: 0, y: 0, z: 0 };
+
+        const dx = (xmax - xmin) / (N - 1);
+        const dy = (ymax - ymin) / (N - 1);
+        const dz = (zmax - zmin) / (N - 1);
+
+        // Cache scalar field values
+        const values = new Float32Array(N * N * N);
+        let idx = 0;
+        for (let k = 0; k < N; k++) {
+          const z = zmin + k * dz;
+          scope.z = z;
+          for (let j = 0; j < N; j++) {
+            const y = ymin + j * dy;
+            scope.y = y;
+            for (let i = 0; i < N; i++) {
+              const x = xmin + i * dx;
+              scope.x = x;
+              let v = f.evaluate(scope);
+              v = (typeof v === 'number' && Number.isFinite(v)) ? v : NaN;
+              values[idx++] = v;
+            }
+          }
+        }
+
+        const tetraList = [
+          [0, 5, 1, 6],
+          [0, 1, 2, 6],
+          [0, 2, 3, 6],
+          [0, 3, 7, 6],
+          [0, 7, 4, 6],
+          [0, 4, 5, 6],
+        ];
+        // cube corner offsets: 0..7
+        const cx = [0, 1, 1, 0, 0, 1, 1, 0];
+        const cy = [0, 0, 1, 1, 0, 0, 1, 1];
+        const cz = [0, 0, 0, 0, 1, 1, 1, 1];
+
+        function vIndex(i, j, k) { return i + N * (j + N * k); }
+        function lerpPoint(p1, p2, v1, v2) {
+          const t = (isoValue - v1) / (v2 - v1);
+          return [
+            p1[0] + t * (p2[0] - p1[0]),
+            p1[1] + t * (p2[1] - p1[1]),
+            p1[2] + t * (p2[2] - p1[2]),
+          ];
+        }
+
+        // marching tetrahedra edge connections for a tetra (6 edges)
+        const tetEdges = [
+          [0, 1], [1, 2], [2, 0],
+          [0, 3], [1, 3], [2, 3],
+        ];
+
+        const positions = [];
+
+        function emitTri(a, b, c) {
+          positions.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+        }
+
+        for (let k = 0; k < N - 1; k++) {
+          for (let j = 0; j < N - 1; j++) {
+            for (let i = 0; i < N - 1; i++) {
+              // cube corner positions/values
+              const p = new Array(8);
+              const val = new Array(8);
+              for (let c = 0; c < 8; c++) {
+                const xi = i + cx[c], yj = j + cy[c], zk = k + cz[c];
+                const x = xmin + xi * dx;
+                const y = ymin + yj * dy;
+                const z = zmin + zk * dz;
+                p[c] = [x, y, z];
+                val[c] = values[vIndex(xi, yj, zk)];
+              }
+
+              // process 6 tetrahedra
+              for (const tIdx of tetraList) {
+                const tp = [p[tIdx[0]], p[tIdx[1]], p[tIdx[2]], p[tIdx[3]]];
+                const tv = [val[tIdx[0]], val[tIdx[1]], val[tIdx[2]], val[tIdx[3]]];
+                if (!tv.every(Number.isFinite)) continue;
+
+                const inside = tv.map(v => v <= isoValue);
+                const nInside = inside.filter(Boolean).length;
+                if (nInside === 0 || nInside === 4) continue;
+
+                // Collect intersection points on edges that cross the iso
+                const ip = [];
+                for (const [a, b] of tetEdges) {
+                  if (inside[a] === inside[b]) continue;
+                  ip.push(lerpPoint(tp[a], tp[b], tv[a], tv[b]));
+                }
+
+                if (ip.length === 3) {
+                  emitTri(ip[0], ip[1], ip[2]);
+                } else if (ip.length === 4) {
+                  // split quad into 2 tris
+                  emitTri(ip[0], ip[1], ip[2]);
+                  emitTri(ip[0], ip[2], ip[3]);
+                }
+              }
+            }
+          }
+        }
+
+        const geom = new THREE.BufferGeometry();
+        const posArr = new Float32Array(positions);
+        geom.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+        geom.computeVertexNormals();
+        geom.computeBoundingSphere();
+        return geom;
+      }
+
+      function buildImplicitSurfaceFromUI() {
+        const mode = String(ui.algMode?.value || 'parametric');
+        if (mode !== 'implicit') return;
+        const fText = String(ui.algF?.value || '').trim();
+        if (!fText) throw new Error('Algebraic: F(x,y,z) must not be empty.');
+        const iso = parseFloatExpr(ui.algIso?.value ?? '0', 'iso');
+        const N = parseIntStrict(ui.algRes?.value ?? '40', 'resolution (N)');
+        const xmin = parseFloatExpr(ui.algXMin?.value ?? '-1', 'x min');
+        const xmax = parseFloatExpr(ui.algXMax?.value ?? '1', 'x max');
+        const ymin = parseFloatExpr(ui.algYMin?.value ?? '-1', 'y min');
+        const ymax = parseFloatExpr(ui.algYMax?.value ?? '1', 'y max');
+        const zmin = parseFloatExpr(ui.algZMin?.value ?? '-1', 'z min');
+        const zmax = parseFloatExpr(ui.algZMax?.value ?? '1', 'z max');
+        if (!(xmax > xmin) || !(ymax > ymin) || !(zmax > zmin)) throw new Error('Algebraic bounds must satisfy max > min.');
+
+        const params = parseParams(ui.params.value);
+        const geom = buildImplicitSurfaceGeometry(
+          fText,
+          iso,
+          { xmin, xmax, ymin, ymax, zmin, zmax },
+          N,
+          params
+        );
+
+        disposeImplicitSurface();
+        const mat = new THREE.MeshNormalMaterial({ side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.visible = true;
+        scene.add(mesh);
+        // Points view (for render mode = Points)
+        const pm = new THREE.PointsMaterial({
+          color: 0xffffff,
+          size: pointsMaterial.size ?? 0.01,
+          sizeAttenuation: true,
+          transparent: true,
+          opacity: 0.95,
+        });
+        const pts = new THREE.Points(geom, pm);
+        pts.visible = false;
+        scene.add(pts);
+        implicitSurface.mesh = mesh;
+        implicitSurface.geometry = geom;
+        implicitSurface.points = pts;
+        implicitSurface.pointsMaterial = pm;
+
+        runtime.systemType = 'implicit';
+        runtime.running = false;
+        runtime.compiled = null;
+        runtime.params = params;
+        // hide path buffers
+        applyRenderMode();
       }
 
       function resetView() {
@@ -1860,6 +3558,17 @@
         s.x = n >= 1 ? st[0] : 0;
         s.y = n >= 2 ? st[1] : 0;
         s.z = n >= 3 ? st[2] : 0;
+      }
+
+      function fillScopeFromArray(tValue, arr, dim) {
+        const s = runtime.scope;
+        s.t = tValue;
+        for (const [k, v] of Object.entries(runtime.params)) s[k] = v;
+        const n = dim | 0;
+        for (let i = 0; i < n; i++) s['x' + (i + 1)] = arr[i] ?? 0;
+        s.x = n >= 1 ? (arr[0] ?? 0) : 0;
+        s.y = n >= 2 ? (arr[1] ?? 0) : 0;
+        s.z = n >= 3 ? (arr[2] ?? 0) : 0;
       }
 
       function evalExpr3(out3, x, y, z, t) {
@@ -2212,6 +3921,18 @@
 
       function streamSolveChunk() {
         if (!runtime.running) return;
+        if (runtime.systemType === 'pde') {
+          streamSolveChunkPde();
+          return;
+        }
+        if (runtime.systemType === 'dae') {
+          streamSolveChunkDAE();
+          return;
+        }
+        if (runtime.systemType === 'hybrid') {
+          streamSolveChunkHybrid();
+          return;
+        }
         if (!runtime.compiled) return;
 
         const stepFn = (runtime.systemType === 'map')
@@ -2269,19 +3990,699 @@
         runtime.systemType = 'ode';
         runtime.sigma = 0;
         resetPathGeometry(1);
+        // PDE reset
+        runtime.pde.u = null;
+        runtime.pde.uNext = null;
+        runtime.pde.u0 = null;
+        runtime.pde.source = null;
+        runtime.pde.sourceIsZero = true;
+        runtime.pde.nonlinear = null;
+        runtime.pde.nonlinearIsZero = true;
+        // DAE reset
+        runtime.dae.nx = 0;
+        runtime.dae.ny = 0;
+        runtime.dae.f = null;
+        runtime.dae.g = null;
+        // Hybrid reset
+        runtime.hybrid.cond = null;
+        runtime.hybrid.resetTargets = null;
+        runtime.hybrid.resetExprs = null;
+        // Algebraic implicit reset
+        disposeImplicitSurface();
+        if (pdeSurface.mesh) pdeSurface.mesh.visible = false;
+        applyRenderMode();
+      }
+
+      function compilePdeLinearSettings() {
+        const type = String(ui.pdeType?.value || 'heat2d');
+        if (type !== 'heat2d') throw new Error(`Unsupported PDE type: ${type}`);
+
+        const nx = parseIntStrict(ui.pdeNx?.value ?? '60', 'Nx');
+        const ny = parseIntStrict(ui.pdeNy?.value ?? '60', 'Ny');
+        if (nx < 2) throw new Error('Nx must be >= 2.');
+        if (ny < 2) throw new Error('Ny must be >= 2.');
+
+        const xmin = parseFloatExpr(ui.pdeXMin?.value ?? '-1', 'x min');
+        const xmax = parseFloatExpr(ui.pdeXMax?.value ?? '1', 'x max');
+        const ymin = parseFloatExpr(ui.pdeYMin?.value ?? '-1', 'y min');
+        const ymax = parseFloatExpr(ui.pdeYMax?.value ?? '1', 'y max');
+        if (!(xmax > xmin)) throw new Error('Require x max > x min.');
+        if (!(ymax > ymin)) throw new Error('Require y max > y min.');
+
+        const alpha = parseFloatExpr(ui.pdeAlpha?.value ?? '0.25', 'alpha');
+        if (!(alpha >= 0)) throw new Error('alpha must be >= 0.');
+
+        const bc = String(ui.pdeBC?.value || 'dirichlet0');
+        if (!['dirichlet0', 'neumann0', 'periodic'].includes(bc)) throw new Error(`Unknown boundary: ${bc}`);
+
+        const zScale = parseFloatExpr(ui.pdeZScale?.value ?? '1', 'Z scale');
+        if (!Number.isFinite(zScale)) throw new Error('Z scale must be a finite number.');
+
+        const u0Text = String(ui.pdeU0?.value || '').trim();
+        if (!u0Text) throw new Error('Initial condition u0 must not be empty.');
+        const srcTextRaw = String(ui.pdeSource?.value || '').trim();
+        const srcText = srcTextRaw ? srcTextRaw : '0';
+        const sourceIsZero = !srcTextRaw || srcTextRaw === '0' || srcTextRaw === '0.0';
+
+        const u0 = math.compile(u0Text);
+        const source = math.compile(srcText);
+
+        // Nonlinear PDE: optional reaction term N(u,x,y,t)
+        const category = String(ui.systemType?.value || 'pde_linear');
+        const isNonlinear = category === 'pde_nonlinear';
+        const nlTextRaw = String(ui.pdeNonlinear?.value || '').trim();
+        const nlText = nlTextRaw ? nlTextRaw : '0';
+        const nonlinearIsZero = !isNonlinear || !nlTextRaw || nlTextRaw === '0' || nlTextRaw === '0.0';
+        const nonlinear = math.compile(nlText);
+
+        return {
+          type, nx, ny, xmin, xmax, ymin, ymax, alpha, bc, zScale,
+          u0, source, sourceIsZero,
+          isNonlinear, nonlinear, nonlinearIsZero
+        };
+      }
+
+      function initPdeField() {
+        const cfg = compilePdeLinearSettings();
+        const params = parseParams(ui.params.value);
+        const dt = parseFloatStrict(ui.dt.value, 'dt');
+        const steps = parseIntStrict(ui.steps.value, 'steps');
+        const ppf = parseIntStrict(ui.ppf.value, 'Iters/frame');
+
+        if (!(dt > 0)) throw new Error('dt must be > 0.');
+        if (!(steps > 0)) throw new Error('steps must be > 0.');
+        if (!(ppf > 0)) throw new Error('Iters/frame must be > 0.');
+
+        const dx = (cfg.xmax - cfg.xmin) / (cfg.nx - 1);
+        const dy = (cfg.ymax - cfg.ymin) / (cfg.ny - 1);
+
+        // Explicit FTCS stability (2D heat): alpha*dt*(1/dx^2 + 1/dy^2) <= 1/2
+        // If alpha==0 (pure reaction), skip diffusion CFL.
+        if (cfg.alpha > 0) {
+          const dtMax = 0.5 / (cfg.alpha * (1 / (dx * dx) + 1 / (dy * dy)));
+          if (dt > dtMax) {
+            throw new Error(`Stability violated for explicit heat solver.\nSuggested dt <= ${dtMax.toExponential(3)} (current dt=${dt.toExponential(3)}).`);
+          }
+        }
+
+        ensurePdeSurfaceGeometry(cfg.nx, cfg.ny, cfg.xmin, cfg.xmax, cfg.ymin, cfg.ymax);
+        if (pdeSurface.mesh) pdeSurface.mesh.visible = true;
+
+        // Configure runtime
+        runtime.systemType = 'pde';
+        runtime.compiled = null;
+        runtime.params = params;
+        runtime.dt = dt;
+        runtime.maxSteps = steps;
+        runtime.pointsPerFrame = Math.max(1, ppf | 0); // reuse as iterations/frame
+        runtime.t = 0;
+        runtime.stepIndex = 0;
+        runtime.skippedDerivs = 0;
+        runtime.rejectedSteps = 0;
+
+        // Update scope with params once
+        for (const [k, v] of Object.entries(params)) runtime.scope[k] = v;
+
+        // Setup PDE runtime + field arrays
+        runtime.pde.type = cfg.type;
+        runtime.pde.nx = cfg.nx;
+        runtime.pde.ny = cfg.ny;
+        runtime.pde.xmin = cfg.xmin;
+        runtime.pde.xmax = cfg.xmax;
+        runtime.pde.ymin = cfg.ymin;
+        runtime.pde.ymax = cfg.ymax;
+        runtime.pde.dx = dx;
+        runtime.pde.dy = dy;
+        runtime.pde.alpha = cfg.alpha;
+        runtime.pde.bc = cfg.bc;
+        runtime.pde.zScale = cfg.zScale;
+        runtime.pde.u0 = cfg.u0;
+        runtime.pde.source = cfg.source;
+        runtime.pde.sourceIsZero = cfg.sourceIsZero;
+        runtime.pde.nonlinear = cfg.nonlinear;
+        runtime.pde.nonlinearIsZero = cfg.nonlinearIsZero;
+        runtime.pde.u = new Float64Array(cfg.nx * cfg.ny);
+        runtime.pde.uNext = new Float64Array(cfg.nx * cfg.ny);
+
+        const s = runtime.scope;
+        s.t = 0;
+        s.z = 0;
+        s.u = 0;
+        for (let j = 0; j < cfg.ny; j++) {
+          const y = cfg.ymin + j * dy;
+          for (let i = 0; i < cfg.nx; i++) {
+            const x = cfg.xmin + i * dx;
+            const idx = i + cfg.nx * j;
+            s.x = x;
+            s.y = y;
+            const v = cfg.u0.evaluate(s);
+            runtime.pde.u[idx] = (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
+          }
+        }
+
+        applyRenderMode();
+
+        // Render initial field
+        updatePdeSurfaceFromField(cfg.nx, cfg.ny, runtime.pde.u, runtime.pde.zScale);
+      }
+
+      function wrapIndex(i, n) {
+        const m = i % n;
+        return (m < 0) ? (m + n) : m;
+      }
+      function reflectIndex(i, n) {
+        if (i < 0) return -i;
+        if (i > n - 1) return 2 * (n - 1) - i;
+        return i;
+      }
+
+      function pdeSample(u, i, j, nx, ny, bc) {
+        if (bc === 'periodic') {
+          const ii = wrapIndex(i, nx);
+          const jj = wrapIndex(j, ny);
+          return u[ii + nx * jj];
+        }
+        if (bc === 'neumann0') {
+          const ii = reflectIndex(i, nx);
+          const jj = reflectIndex(j, ny);
+          return u[ii + nx * jj];
+        }
+        // Dirichlet0
+        if (i < 0 || i >= nx || j < 0 || j >= ny) return 0;
+        return u[i + nx * j];
+      }
+
+      function stepPdeHeatOnce() {
+        const p = runtime.pde;
+        const nx = p.nx;
+        const ny = p.ny;
+        const u = p.u;
+        const un = p.uNext;
+        if (!u || !un) return;
+
+        const dt = runtime.dt;
+        const alpha = p.alpha;
+        const invDx2 = 1 / (p.dx * p.dx);
+        const invDy2 = 1 / (p.dy * p.dy);
+        const bc = p.bc;
+        const s = runtime.scope;
+        s.t = runtime.t;
+        s.z = 0;
+
+        for (let j = 0; j < ny; j++) {
+          const y = p.ymin + j * p.dy;
+          for (let i = 0; i < nx; i++) {
+            const x = p.xmin + i * p.dx;
+            const idx = i + nx * j;
+            const c = u[idx];
+            const ux = (pdeSample(u, i + 1, j, nx, ny, bc) - 2 * c + pdeSample(u, i - 1, j, nx, ny, bc)) * invDx2;
+            const uy = (pdeSample(u, i, j + 1, nx, ny, bc) - 2 * c + pdeSample(u, i, j - 1, nx, ny, bc)) * invDy2;
+            let src = 0;
+            if (!p.sourceIsZero && p.source) {
+              s.x = x; s.y = y;
+              const vv = p.source.evaluate(s);
+              src = (typeof vv === 'number' && Number.isFinite(vv)) ? vv : 0;
+            }
+            let nl = 0;
+            if (!p.nonlinearIsZero && p.nonlinear) {
+              s.x = x; s.y = y; s.u = c;
+              const vv = p.nonlinear.evaluate(s);
+              nl = (typeof vv === 'number' && Number.isFinite(vv)) ? vv : 0;
+            }
+            const next = c + dt * (alpha * (ux + uy) + src + nl);
+            un[idx] = Number.isFinite(next) ? next : 0;
+          }
+        }
+
+        if (bc === 'dirichlet0') {
+          // enforce boundary u=0
+          for (let i = 0; i < nx; i++) {
+            un[i + nx * 0] = 0;
+            un[i + nx * (ny - 1)] = 0;
+          }
+          for (let j = 0; j < ny; j++) {
+            un[0 + nx * j] = 0;
+            un[(nx - 1) + nx * j] = 0;
+          }
+        }
+
+        // swap buffers
+        p.u = un;
+        p.uNext = u;
+      }
+
+      function streamSolveChunkPde() {
+        if (!runtime.running) return;
+        if (runtime.systemType !== 'pde') return;
+        if (!runtime.pde.u) return;
+
+        // enforce visibility
+        applyRenderMode();
+
+        const perFrame = Math.max(1, runtime.pointsPerFrame | 0);
+        for (let n = 0; n < perFrame; n++) {
+          if (runtime.stepIndex >= runtime.maxSteps) {
+            setRunning(false);
+            break;
+          }
+          stepPdeHeatOnce();
+          runtime.t += runtime.dt;
+          runtime.stepIndex++;
+        }
+        updatePdeSurfaceFromField(runtime.pde.nx, runtime.pde.ny, runtime.pde.u, runtime.pde.zScale);
+      }
+
+      function solveLinearSystemInPlace(A, b, n) {
+        // Gaussian elimination with partial pivoting.
+        // A: Float64Array length n*n, row-major. b: Float64Array length n.
+        const N = n | 0;
+        for (let k = 0; k < N; k++) {
+          // pivot
+          let pivotRow = k;
+          let pivotVal = Math.abs(A[k * N + k]);
+          for (let i = k + 1; i < N; i++) {
+            const v = Math.abs(A[i * N + k]);
+            if (v > pivotVal) { pivotVal = v; pivotRow = i; }
+          }
+          if (!(pivotVal > 0) || !Number.isFinite(pivotVal)) return false;
+          if (pivotRow !== k) {
+            // swap rows in A and b
+            for (let j = k; j < N; j++) {
+              const tmp = A[k * N + j];
+              A[k * N + j] = A[pivotRow * N + j];
+              A[pivotRow * N + j] = tmp;
+            }
+            const tb = b[k]; b[k] = b[pivotRow]; b[pivotRow] = tb;
+          }
+          const Akk = A[k * N + k];
+          // eliminate
+          for (let i = k + 1; i < N; i++) {
+            const factor = A[i * N + k] / Akk;
+            if (!Number.isFinite(factor)) return false;
+            A[i * N + k] = 0;
+            for (let j = k + 1; j < N; j++) {
+              A[i * N + j] -= factor * A[k * N + j];
+            }
+            b[i] -= factor * b[k];
+          }
+        }
+        // back substitution
+        for (let i = N - 1; i >= 0; i--) {
+          let sum = b[i];
+          for (let j = i + 1; j < N; j++) sum -= A[i * N + j] * b[j];
+          const Aii = A[i * N + i];
+          if (!(Math.abs(Aii) > 0) || !Number.isFinite(Aii)) return false;
+          b[i] = sum / Aii;
+          if (!Number.isFinite(b[i])) return false;
+        }
+        return true;
+      }
+
+      function daeEvalG(out, tValue, stateArr, dim, gCompiled) {
+        fillScopeFromArray(tValue, stateArr, dim);
+        const s = runtime.scope;
+        for (let i = 0; i < out.length; i++) {
+          const v = gCompiled[i].evaluate(s);
+          out[i] = (typeof v === 'number' && Number.isFinite(v)) ? v : NaN;
+        }
+        return out.every(Number.isFinite);
+      }
+
+      function daeEvalF(out, tValue, stateArr, dim, fCompiled) {
+        fillScopeFromArray(tValue, stateArr, dim);
+        const s = runtime.scope;
+        for (let i = 0; i < out.length; i++) {
+          const v = fCompiled[i].evaluate(s);
+          out[i] = (typeof v === 'number' && Number.isFinite(v)) ? v : NaN;
+        }
+        return out.every(Number.isFinite);
+      }
+
+      function daeProjectY(stateArr, dim, nx, ny, tValue, gCompiled, tol, maxIters) {
+        // Newton solve for y (last ny vars) with x fixed.
+        const g = new Float64Array(ny);
+        const gPert = new Float64Array(ny);
+        const J = new Float64Array(ny * ny);
+        const delta = new Float64Array(ny);
+
+        for (let iter = 0; iter < maxIters; iter++) {
+          if (!daeEvalG(g, tValue, stateArr, dim, gCompiled)) return { ok: false, iter, reason: 'g eval non-finite' };
+          let maxAbs = 0;
+          for (let i = 0; i < ny; i++) maxAbs = Math.max(maxAbs, Math.abs(g[i]));
+          if (maxAbs <= tol) return { ok: true, iter };
+
+          // numerical Jacobian wrt y
+          for (let j = 0; j < ny; j++) {
+            const idx = nx + j;
+            const y0 = stateArr[idx];
+            const eps = 1e-6 * (1 + Math.abs(y0));
+            stateArr[idx] = y0 + eps;
+            daeEvalG(gPert, tValue, stateArr, dim, gCompiled);
+            stateArr[idx] = y0;
+            for (let i = 0; i < ny; i++) {
+              J[i * ny + j] = (gPert[i] - g[i]) / eps;
+            }
+          }
+
+          // Solve J * delta = -g
+          for (let i = 0; i < ny; i++) delta[i] = -g[i];
+          const A = new Float64Array(J); // copy
+          const okSolve = solveLinearSystemInPlace(A, delta, ny);
+          if (!okSolve) return { ok: false, iter, reason: 'singular Jacobian' };
+
+          // update y
+          for (let j = 0; j < ny; j++) {
+            const idx = nx + j;
+            stateArr[idx] += delta[j];
+          }
+        }
+        return { ok: false, iter: maxIters, reason: 'max iters' };
+      }
+
+      function streamSolveChunkDAE() {
+        if (!runtime.running) return;
+        const nx = runtime.dae.nx | 0;
+        const ny = runtime.dae.ny | 0;
+        const dim = nx + ny;
+        if (!(nx >= 1) || !(ny >= 1) || runtime.dim !== dim) return;
+        const f = runtime.dae.f;
+        const g = runtime.dae.g;
+        if (!f || !g) return;
+
+        const dt = runtime.dt;
+        const perFrame = Math.max(1, runtime.pointsPerFrame | 0);
+        const maxSteps = runtime.maxSteps;
+        const transient = runtime.transientSteps;
+
+        const fVec = new Float64Array(nx);
+        const next = new Float64Array(dim);
+
+        let wrote = 0;
+        for (let n = 0; n < perFrame; n++) {
+          if (runtime.stepIndex >= maxSteps) { setRunning(false); break; }
+
+          next.set(runtime.state);
+          if (!daeEvalF(fVec, runtime.t, next, dim, f)) {
+            setRunning(false);
+            showError('DAE error: non-finite f(x,y,t).');
+            break;
+          }
+          // Euler step on x
+          for (let i = 0; i < nx; i++) next[i] = next[i] + dt * fVec[i];
+
+          // Project y via constraints at t+dt
+          const proj = daeProjectY(next, dim, nx, ny, runtime.t + dt, g, runtime.dae.tol, runtime.dae.maxIters);
+          if (!proj.ok) {
+            setRunning(false);
+            showError(`DAE Newton failed (${proj.reason}) at step ${runtime.stepIndex}.\nTry: smaller dt, better initial guess, or simpler constraints.`);
+            break;
+          }
+
+          runtime.state.set(next);
+          runtime.lastGood.set(next);
+          runtime.t += dt;
+          runtime.stepIndex++;
+
+          if (runtime.stepIndex <= transient) continue;
+          if (!appendPointFromState()) continue;
+          wrote++;
+        }
+
+        if (wrote > 0) {
+          pathGeometry.setDrawRange(0, runtime.count);
+          pathGeometry.attributes.position.needsUpdate = true;
+          pathGeometry.attributes.color.needsUpdate = true;
+          pathGeometry.computeBoundingSphere();
+        }
+      }
+
+      function stepHybridOnce() {
+        const dim = runtime.dim;
+        const compiled = runtime.compiled;
+        const cond = runtime.hybrid.cond;
+        if (!compiled || !cond) return false;
+        const maxEvents = runtime.hybrid.maxEventsPerStep | 0;
+        const scratch = ensureHybridScratch(dim);
+
+        let remaining = runtime.dt;
+        let events = 0;
+        // Use scratch buffers for sub-stepping (no allocations)
+        scratch.stateA.set(runtime.state);
+        let state = scratch.stateA;
+        let t0 = runtime.t;
+
+        // If we start already in triggered region, reset immediately (no time consumed)
+        for (let guard = 0; guard < 3; guard++) {
+          const c0 = evalBoolExpr(cond, t0, state, dim);
+          if (c0 == null) return false;
+          if (!c0) break;
+          if (!applyHybridReset(state, dim)) return false;
+        }
+
+        while (remaining > 0) {
+          if (events > maxEvents) return false;
+          const cStart = evalBoolExpr(cond, t0, state, dim);
+          if (cStart == null) return false;
+          if (cStart) {
+            // shouldn't happen often due to guard above, but handle safely
+            if (!applyHybridReset(state, dim)) return false;
+            events++;
+            continue;
+          }
+
+          if (!integrateInto(scratch.stateB, state, t0, remaining, dim, compiled, runtime.solver, scratch)) return false;
+          const cEnd = evalBoolExpr(cond, t0 + remaining, scratch.stateB, dim);
+          if (cEnd == null) return false;
+          if (!cEnd) {
+            // no event in this remainder
+            // swap A/B
+            const tmpS = state;
+            state = scratch.stateB;
+            scratch.stateB = tmpS;
+            t0 = t0 + remaining;
+            remaining = 0;
+            break;
+          }
+
+          // Event crossing: find time within (0, remaining] via bisection
+          let lo = 0;
+          let hi = remaining;
+          scratch.stateLo.set(state);
+          for (let it = 0; it < 28; it++) {
+            const mid = 0.5 * (lo + hi);
+            if (!integrateInto(scratch.stateB, state, t0, mid, dim, compiled, runtime.solver, scratch)) return false;
+            const cMid = evalBoolExpr(cond, t0 + mid, scratch.stateB, dim);
+            if (cMid == null) return false;
+            if (cMid) {
+              hi = mid;
+            } else {
+              lo = mid;
+              scratch.stateLo.set(scratch.stateB);
+            }
+            if (hi - lo < Math.max(1e-6, 1e-3 * remaining)) break;
+          }
+
+          // Advance to event time ~hi
+          if (!integrateInto(scratch.stateB, state, t0, hi, dim, compiled, runtime.solver, scratch)) return false;
+          t0 = t0 + hi;
+          remaining = remaining - hi;
+          // swap
+          const tmpS2 = state;
+          state = scratch.stateB;
+          scratch.stateB = tmpS2;
+
+          // Apply reset instantly at event time
+          runtime.t = t0; // for scope evaluation inside reset
+          if (!applyHybridReset(state, dim)) return false;
+          events++;
+        }
+
+        runtime.state.set(state);
+        runtime.lastGood.set(state);
+        runtime.t = t0;
+        return true;
+      }
+
+      function streamSolveChunkHybrid() {
+        if (!runtime.running) return;
+        if (!runtime.compiled || !runtime.hybrid.cond) return;
+        const max = runtime.maxSteps;
+        const transient = runtime.transientSteps;
+        const perFrame = Math.max(1, runtime.pointsPerFrame | 0);
+
+        let wrote = 0;
+        for (let n = 0; n < perFrame; n++) {
+          if (runtime.stepIndex >= max) { setRunning(false); break; }
+          const ok = stepHybridOnce();
+          runtime.stepIndex++;
+          if (!ok) {
+            setRunning(false);
+            showError('Hybrid error: event/reset evaluation failed. Check condition/reset expressions and dt.');
+            break;
+          }
+          if (runtime.stepIndex <= transient) continue;
+          if (!appendPointFromState()) continue;
+          wrote++;
+        }
+
+        if (wrote > 0) {
+          pathGeometry.setDrawRange(0, runtime.count);
+          pathGeometry.attributes.position.needsUpdate = true;
+          pathGeometry.attributes.color.needsUpdate = true;
+          pathGeometry.computeBoundingSphere();
+        }
       }
 
       function startSimulation() {
         try {
           showError('');
+          // If we previously built an implicit surface, dispose it when starting other modes.
+          if (runtime.systemType === 'implicit') {
+            disposeImplicitSurface();
+            runtime.systemType = 'param';
+            applyRenderMode();
+          }
+          const category = String(ui.systemType?.value || 'ode_nonlinear');
+          const systemType = categoryToEngineType(category);
+          if (!systemType) throw new Error(`This category is not implemented yet: ${category}`);
+          if (category === 'algebraic' && String(ui.algMode?.value || 'parametric') === 'implicit') {
+            buildImplicitSurfaceFromUI();
+            showNotice('Built implicit surface mesh.');
+            setRunning(false);
+            return;
+          }
+          if (systemType === 'pde') {
+            initPdeField();
+            setRunning(true);
+            return;
+          }
+          if (systemType === 'hybrid') {
+            syncDimAuto();
+            const compiled = compileSystemEquations();
+            const params = parseParams(ui.params.value);
+            const initState = parseInit(ui.init.value);
+            const dt = parseFloatStrict(ui.dt.value, 'dt');
+            const steps = parseIntStrict(ui.steps.value, 'steps');
+            const transient = parseIntStrict(ui.transient.value, 'transient');
+            const ppf = parseIntStrict(ui.ppf.value, 'Points/frame');
+            if (!(dt > 0)) throw new Error('dt must be > 0.');
+            if (!(steps > 10)) throw new Error('steps must be > 10.');
+            if (!(transient >= 0)) throw new Error('transient must be >= 0.');
+            if (transient >= steps) throw new Error('transient must be < steps.');
+            if (!(ppf > 0)) throw new Error('Points/frame must be > 0.');
+
+            const condText = String(ui.hybridEvent?.value || '').trim();
+            if (!condText) throw new Error('Hybrid: event condition must not be empty.');
+            const cond = math.compile(condText);
+            const rr = parseHybridResetRules(ui.hybridReset?.value || '', compiled.n);
+
+            runtime.systemType = 'hybrid';
+            runtime.compiled = compiled;
+            runtime.params = params;
+            runtime.dim = compiled.n;
+            runtime.dt = dt;
+            runtime.maxSteps = steps;
+            runtime.transientSteps = transient;
+            runtime.pointsPerFrame = Math.max(1, ppf);
+            runtime.t = 0;
+            runtime.stepIndex = 0;
+            runtime.skippedDerivs = 0;
+            runtime.rejectedSteps = 0;
+            runtime.state = initState;
+            runtime.lastGood = new Float64Array(runtime.dim);
+            runtime.lastGood.set(initState);
+
+            runtime.hybrid.cond = cond;
+            runtime.hybrid.resetTargets = rr.targets;
+            runtime.hybrid.resetExprs = rr.exprs;
+
+            // Hybrid supports fixed-step only
+            runtime.solver = (String(ui.solver?.value || 'rk4') === 'euler') ? 'euler' : 'rk4';
+
+            const px = clampIndex1Based(ui.projX?.value ?? '1', runtime.dim, 1) - 1;
+            const py = clampIndex1Based(ui.projY?.value ?? '2', runtime.dim, Math.min(2, runtime.dim)) - 1;
+            const pz = clampIndex1Based(ui.projZ?.value ?? '3', runtime.dim, Math.min(3, runtime.dim)) - 1;
+            runtime.proj = [px, py, pz];
+
+            resetPathGeometry(Math.max(1, steps - transient));
+            appendPointFromState();
+            pathGeometry.setDrawRange(0, runtime.count);
+            pathGeometry.attributes.position.needsUpdate = true;
+            pathGeometry.attributes.color.needsUpdate = true;
+            pathGeometry.computeBoundingSphere();
+
+            applyRenderMode();
+            setRunning(true);
+            return;
+          }
+          if (systemType === 'dae') {
+            const cfg = compileDAE();
+            const params = parseParams(ui.params.value);
+            const dt = parseFloatStrict(ui.dt.value, 'dt');
+            const steps = parseIntStrict(ui.steps.value, 'steps');
+            const transient = parseIntStrict(ui.transient.value, 'transient');
+            const ppf = parseIntStrict(ui.ppf.value, 'Points/frame');
+            if (!(dt > 0)) throw new Error('dt must be > 0.');
+            if (!(steps > 10)) throw new Error('steps must be > 10.');
+            if (!(transient >= 0)) throw new Error('transient must be >= 0.');
+            if (transient >= steps) throw new Error('transient must be < steps.');
+            if (!(ppf > 0)) throw new Error('Points/frame must be > 0.');
+
+            runtime.systemType = 'dae';
+            runtime.compiled = null;
+            runtime.params = params;
+            runtime.dim = cfg.dim;
+            runtime.dt = dt;
+            runtime.maxSteps = steps;
+            runtime.transientSteps = transient;
+            runtime.pointsPerFrame = Math.max(1, ppf | 0);
+            runtime.solver = 'euler';
+            runtime.t = 0;
+            runtime.stepIndex = 0;
+            runtime.skippedDerivs = 0;
+            runtime.rejectedSteps = 0;
+
+            runtime.dae.nx = cfg.nx;
+            runtime.dae.ny = cfg.ny;
+            runtime.dae.f = cfg.f;
+            runtime.dae.g = cfg.g;
+            runtime.dae.tol = cfg.tol;
+            runtime.dae.maxIters = cfg.maxIters;
+
+            const initState = parseInitForN(ui.init.value, cfg.dim);
+            runtime.state = initState;
+            runtime.lastGood = new Float64Array(cfg.dim);
+            runtime.lastGood.set(initState);
+
+            // Ensure initial constraints satisfied (project y at t=0)
+            const proj0 = daeProjectY(runtime.state, cfg.dim, cfg.nx, cfg.ny, 0, cfg.g, cfg.tol, cfg.maxIters);
+            if (!proj0.ok) throw new Error('DAE init: constraints could not be satisfied (Newton failed).');
+            runtime.lastGood.set(runtime.state);
+
+            // Projection indices
+            const px = clampIndex1Based(ui.projX?.value ?? '1', runtime.dim, 1) - 1;
+            const py = clampIndex1Based(ui.projY?.value ?? '2', runtime.dim, Math.min(2, runtime.dim)) - 1;
+            const pz = clampIndex1Based(ui.projZ?.value ?? '3', runtime.dim, Math.min(3, runtime.dim)) - 1;
+            runtime.proj = [px, py, pz];
+
+            resetPathGeometry(Math.max(1, steps - transient));
+            appendPointFromState();
+            pathGeometry.setDrawRange(0, runtime.count);
+            pathGeometry.attributes.position.needsUpdate = true;
+            pathGeometry.attributes.color.needsUpdate = true;
+            pathGeometry.computeBoundingSphere();
+
+            applyRenderMode();
+            setRunning(true);
+            return;
+          }
+
           syncDimAuto();
 
           const compiled = compileSystemEquations();
           const params = parseParams(ui.params.value);
           const initState = parseInit(ui.init.value);
           const dt = parseFloatStrict(ui.dt.value, 'dt');
-          const category = String(ui.systemType?.value || 'ode_nonlinear');
-          const systemType = categoryToEngineType(category);
           const sigma = parseFloatStrict(ui.sigma?.value ?? '0', 'sigma');
           const absTol = parseFloatStrict(ui.absTol?.value ?? '1e-6', 'absTol');
           const relTol = parseFloatStrict(ui.relTol?.value ?? '1e-3', 'relTol');
@@ -2292,7 +4693,6 @@
           const ppf = parseIntStrict(ui.ppf.value, 'Points/frame');
 
           if (!(dt > 0)) throw new Error('dt must be > 0.');
-          if (!systemType) throw new Error(`This category is not implemented yet: ${category}`);
           if (!(absTol > 0)) throw new Error('absTol must be > 0.');
           if (!(relTol > 0)) throw new Error('relTol must be > 0.');
           if (!(dtMin > 0)) throw new Error('dtMin must be > 0.');
@@ -2349,6 +4749,7 @@
           pathGeometry.attributes.color.needsUpdate = true;
           pathGeometry.computeBoundingSphere();
 
+          applyRenderMode();
           setRunning(true);
         } catch (err) {
           showError(`Start error:\n${String(err && err.message ? err.message : err)}`);
@@ -2359,20 +4760,103 @@
       function validateSimulation() {
         try {
           showError('');
+          const category = String(ui.systemType?.value || 'ode_nonlinear');
+          const systemType = categoryToEngineType(category);
+          if (!systemType) throw new Error(`This category is not implemented yet: ${category}`);
+
+          if (category === 'algebraic' && String(ui.algMode?.value || 'parametric') === 'implicit') {
+            const fText = String(ui.algF?.value || '').trim();
+            if (!fText) throw new Error('Algebraic: F(x,y,z) must not be empty.');
+            const iso = parseFloatExpr(ui.algIso?.value ?? '0', 'iso');
+            const xmin = parseFloatExpr(ui.algXMin?.value ?? '-1', 'x min');
+            const xmax = parseFloatExpr(ui.algXMax?.value ?? '1', 'x max');
+            const ymin = parseFloatExpr(ui.algYMin?.value ?? '-1', 'y min');
+            const ymax = parseFloatExpr(ui.algYMax?.value ?? '1', 'y max');
+            const zmin = parseFloatExpr(ui.algZMin?.value ?? '-1', 'z min');
+            const zmax = parseFloatExpr(ui.algZMax?.value ?? '1', 'z max');
+            if (!(xmax > xmin) || !(ymax > ymin) || !(zmax > zmin)) throw new Error('Algebraic bounds must satisfy max > min.');
+            // quick eval sanity
+            const params = parseParams(ui.params.value);
+            const f = math.compile(fText);
+            const scope = { ...(params || {}), pi: Math.PI, e: Math.E, t: 0, x: xmin, y: ymin, z: zmin };
+            const v = f.evaluate(scope);
+            if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error('F(x,y,z) did not evaluate to a finite number (check params).');
+            void iso;
+            showNotice('OK: algebraic implicit surface compiled successfully.');
+            return;
+          }
+
+          if (systemType === 'pde') {
+            // basic PDE validation
+            compilePdeLinearSettings();
+            parseParams(ui.params.value);
+            const dt = parseFloatStrict(ui.dt.value, 'dt');
+            const steps = parseIntStrict(ui.steps.value, 'steps');
+            const ppf = parseIntStrict(ui.ppf.value, 'Iters/frame');
+            if (!(dt > 0)) throw new Error('dt must be > 0.');
+            if (!(steps > 0)) throw new Error('steps must be > 0.');
+            if (!(ppf > 0)) throw new Error('Iters/frame must be > 0.');
+            // stability check
+            const cfg = compilePdeLinearSettings();
+            const dx = (cfg.xmax - cfg.xmin) / (cfg.nx - 1);
+            const dy = (cfg.ymax - cfg.ymin) / (cfg.ny - 1);
+            if (cfg.alpha > 0) {
+              const dtMax = 0.5 / (cfg.alpha * (1 / (dx * dx) + 1 / (dy * dy)));
+              if (dt > dtMax) throw new Error(`Stability violated. Suggested dt <= ${dtMax.toExponential(3)}.`);
+            }
+            showNotice('OK: PDE inputs compiled successfully.');
+            return;
+          }
+          if (systemType === 'hybrid') {
+            syncDimAuto();
+            compileSystemEquations();
+            parseParams(ui.params.value);
+            parseInit(ui.init.value);
+            const dt = parseFloatStrict(ui.dt.value, 'dt');
+            const steps = parseIntStrict(ui.steps.value, 'steps');
+            const transient = parseIntStrict(ui.transient.value, 'transient');
+            const ppf = parseIntStrict(ui.ppf.value, 'Points/frame');
+            if (!(dt > 0)) throw new Error('dt must be > 0.');
+            if (!(steps > 10)) throw new Error('steps must be > 10.');
+            if (!(transient >= 0)) throw new Error('transient must be >= 0.');
+            if (transient >= steps) throw new Error('transient must be < steps.');
+            if (!(ppf > 0)) throw new Error('Points/frame must be > 0.');
+            const condText = String(ui.hybridEvent?.value || '').trim();
+            if (!condText) throw new Error('Hybrid: event condition must not be empty.');
+            math.compile(condText);
+            parseHybridResetRules(ui.hybridReset?.value || '', parseIntStrict(ui.dim?.value ?? '2', 'Dimension N'));
+            showNotice('OK: Hybrid inputs compiled successfully.');
+            return;
+          }
+          if (systemType === 'dae') {
+            const cfg = compileDAE();
+            parseParams(ui.params.value);
+            const dt = parseFloatStrict(ui.dt.value, 'dt');
+            const steps = parseIntStrict(ui.steps.value, 'steps');
+            const transient = parseIntStrict(ui.transient.value, 'transient');
+            const ppf = parseIntStrict(ui.ppf.value, 'Points/frame');
+            if (!(dt > 0)) throw new Error('dt must be > 0.');
+            if (!(steps > 10)) throw new Error('steps must be > 10.');
+            if (!(transient >= 0)) throw new Error('transient must be >= 0.');
+            if (transient >= steps) throw new Error('transient must be < steps.');
+            if (!(ppf > 0)) throw new Error('Points/frame must be > 0.');
+            // init vector length
+            parseInitForN(ui.init.value, cfg.dim);
+            showNotice('OK: DAE inputs compiled successfully.');
+            return;
+          }
+
           syncDimAuto();
 
           const compiled = compileSystemEquations();
           parseParams(ui.params.value);
           parseInit(ui.init.value);
 
-          const category = String(ui.systemType?.value || 'ode_nonlinear');
-          const systemType = categoryToEngineType(category);
           const dt = parseFloatStrict(ui.dt.value, 'dt');
           const steps = parseIntStrict(ui.steps.value, 'steps/iterations');
           const transient = parseIntStrict(ui.transient.value, 'transient');
           const ppf = parseIntStrict(ui.ppf.value, 'Points/frame');
 
-          if (!systemType) throw new Error(`This category is not implemented yet: ${category}`);
           if (!(steps > 10)) throw new Error('steps/iterations must be > 10.');
           if (!(transient >= 0)) throw new Error('transient must be >= 0.');
           if (transient >= steps) throw new Error('transient must be < steps/iterations.');
@@ -2417,89 +4901,45 @@
         return String(line || '').trim().split(/[,\s]+/).filter(Boolean);
       }
 
-      function buildAxB() {
-        try {
-          showError('');
-          const n = Math.max(1, parseIntStrict(ui.axbN?.value ?? ui.dim?.value ?? '3', 'N'));
-          const lines = String(ui.axbA?.value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-          if (lines.length < n) throw new Error(`Matrix A needs at least ${n} non-empty lines.`);
-          const rows = [];
-          for (let i = 0; i < n; i++) {
-            const cells = splitCells(lines[i]);
-            if (cells.length < n) throw new Error(`Matrix A line ${i + 1} needs ${n} columns.`);
-            rows.push(cells.slice(0, n));
-          }
-          const bCells = splitCells(ui.axbB?.value || '');
-          const b = [];
-          for (let i = 0; i < n; i++) b.push(bCells[i] ?? '0');
-
-          const eqLines = [];
-          for (let i = 0; i < n; i++) {
-            const terms = [];
-            for (let j = 0; j < n; j++) {
-              const aij = String(rows[i][j] ?? '0').trim();
-              if (!aij || aij === '0' || aij === '0.0') continue;
-              terms.push(`(${aij})*x${j + 1}`);
-            }
-            const bi = String(b[i] ?? '0').trim();
-            if (bi && bi !== '0' && bi !== '0.0') terms.push(`(${bi})`);
-            const rhs = terms.length ? terms.join(' + ') : '0';
-            eqLines.push(`x${i + 1}' = ${rhs}`);
-          }
-
-          ui.systemType.value = 'ode';
-          if (ui.dim) ui.dim.value = String(n);
-          if (ui.eqMode) ui.eqMode.value = 'vector';
-          if (ui.eqs) ui.eqs.value = eqLines.join('\n');
-          syncEqModeUI();
-          syncSystemTypeUI();
-          showNotice('Applied: x\' = A x + b → vector equations.');
-        } catch (err) {
-          showError(`Wizard Ax+b error:\n${String(err && err.message ? err.message : err)}`);
-        }
-      }
-
-      function buildSecondOrder() {
-        try {
-          showError('');
-          const f = String(ui.xdd?.value || '').trim();
-          if (!f) throw new Error('Please enter f(x,v,t) for x\'\'.');
-          ui.systemType.value = 'ode';
-          if (ui.dim) ui.dim.value = '2';
-          if (ui.eqMode) ui.eqMode.value = 'vector';
-          if (ui.eqs) ui.eqs.value = `x1' = x2\nx2' = ${f}`;
-          syncEqModeUI();
-          syncSystemTypeUI();
-          showNotice('Applied: 2nd-order → N=2 vector equations.');
-        } catch (err) {
-          showError(`Wizard x'' error:\n${String(err && err.message ? err.message : err)}`);
-        }
-      }
-
-      ui.buildAxB?.addEventListener('click', () => buildAxB());
-      ui.buildXdd?.addEventListener('click', () => buildSecondOrder());
+      // Wizards panel removed
 
       // ---- Settings panel wiring (no dat.gui) ----
+      const settingsCache = loadSettingsCache();
+
       // language
       if (settings.langSelect) settings.langSelect.value = getCurrentLang();
       settings.langSelect?.addEventListener('change', () => setCurrentLang(String(settings.langSelect.value || 'vi')));
 
       // axes
-      axes.visible = true;
+      axes.visible = (settingsCache.axesVisible == null) ? true : !!settingsCache.axesVisible;
       if (settings.axesSelect) settings.axesSelect.value = axes.visible ? '1' : '0';
       settings.axesSelect?.addEventListener('change', () => {
         axes.visible = String(settings.axesSelect.value) === '1';
+        saveSettingsCache({ axesVisible: axes.visible });
       });
 
       // render mode
-      let currentMode = 'Line';
+      // Use var to avoid TDZ issues: applyRenderMode() can be called before this block runs.
+      var currentMode = (settingsCache.renderMode === 'Points' || settingsCache.renderMode === 'Line') ? settingsCache.renderMode : 'Points';
+      function applyRenderMode() {
+        if (!renderObjectsReady) return;
+        const isPoints = String(currentMode || 'Line') === 'Points';
+        const isPde = runtime.systemType === 'pde';
+        const isImplicit = runtime.systemType === 'implicit';
+        // PDE/Implicit use their own meshes; ignore path render modes
+        pathPoints.visible = !(isPde || isImplicit) && isPoints;
+        pathLine.visible = !(isPde || isImplicit) && !isPoints;
+        if (pdeSurface.mesh) pdeSurface.mesh.visible = isPde;
+        if (implicitSurface.mesh) implicitSurface.mesh.visible = isImplicit && !isPoints;
+        if (implicitSurface.points) implicitSurface.points.visible = isImplicit && isPoints;
+      }
       if (settings.modeSelect) settings.modeSelect.value = currentMode;
       settings.modeSelect?.addEventListener('change', () => {
         currentMode = String(settings.modeSelect.value || 'Line');
-        const isPoints = currentMode === 'Points';
-        pathPoints.visible = isPoints;
-        pathLine.visible = !isPoints;
+        saveSettingsCache({ renderMode: currentMode });
+        applyRenderMode();
       });
+      applyRenderMode();
 
       // point size
       function clampPointSize(v) {
@@ -2509,30 +4949,141 @@
         const s = clampPointSize(v);
         pointsMaterial.size = s;
         pointsMaterial.needsUpdate = true;
+        if (implicitSurface.pointsMaterial) {
+          implicitSurface.pointsMaterial.size = s;
+          implicitSurface.pointsMaterial.needsUpdate = true;
+        }
         if (settings.pointSize) settings.pointSize.value = String(s);
         if (settings.pointSizeNum) settings.pointSizeNum.value = String(s);
       }
-      setPointSize(pointsMaterial.size ?? 0.01);
-      settings.pointSize?.addEventListener('input', () => setPointSize(settings.pointSize.value));
-      settings.pointSizeNum?.addEventListener('input', () => setPointSize(settings.pointSizeNum.value));
+      setPointSize((settingsCache.pointSize != null) ? settingsCache.pointSize : (pointsMaterial.size ?? 0.01));
+      settings.pointSize?.addEventListener('input', () => {
+        setPointSize(settings.pointSize.value);
+        saveSettingsCache({ pointSize: clampPointSize(settings.pointSize.value) });
+      });
+      settings.pointSizeNum?.addEventListener('input', () => {
+        setPointSize(settings.pointSizeNum.value);
+        saveSettingsCache({ pointSize: clampPointSize(settings.pointSizeNum.value) });
+      });
+
+      // camera move speed (keyboard)
+      function clampCamSpeed(v) {
+        return Math.max(0.2, Math.min(3.5, Number(v) || 1.0));
+      }
+      function setCamSpeed(v) {
+        const s = clampCamSpeed(v);
+        cameraMoveSpeed = s;
+        if (settings.camSpeed) settings.camSpeed.value = String(s);
+        if (settings.camSpeedNum) settings.camSpeedNum.value = String(s);
+      }
+      setCamSpeed((settingsCache.cameraSpeed != null) ? settingsCache.cameraSpeed : 1.0);
+      settings.camSpeed?.addEventListener('input', () => {
+        setCamSpeed(settings.camSpeed.value);
+        saveSettingsCache({ cameraSpeed: clampCamSpeed(settings.camSpeed.value) });
+      });
+      settings.camSpeedNum?.addEventListener('input', () => {
+        setCamSpeed(settings.camSpeedNum.value);
+        saveSettingsCache({ cameraSpeed: clampCamSpeed(settings.camSpeedNum.value) });
+      });
+
+      // mouse lock + sensitivity
+      setPointerLockEnabled(settingsCache.mouseLock != null ? !!settingsCache.mouseLock : false);
+      setMouseSensitivity((settingsCache.mouseSensitivity != null) ? settingsCache.mouseSensitivity : 1.0);
+      settings.mouseLockBtn?.addEventListener('click', () => {
+        if (!mouseLockEnabled) {
+          // turn on and lock
+          setPointerLockEnabled(true);
+        }
+        if (isPointerLocked()) { _unlockRequested = true; exitPointerLock(); }
+        else requestPointerLock();
+      });
+      settings.mouseSense?.addEventListener('input', () => setMouseSensitivity(settings.mouseSense.value));
+      settings.mouseSenseNum?.addEventListener('input', () => setMouseSensitivity(settings.mouseSenseNum.value));
 
       // reset view
       settings.resetView?.addEventListener('click', () => resetView());
 
       // ---- Animation loop ----
+      // Lag / freeze watchdog: if frames are consistently too slow, auto-stop and show suggestions.
+      let _tickPrevMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      let _lagConsecutive = 0;
+      const LAG_FRAME_MS = 450;     // frame gap threshold
+      const LAG_SOLVE_MS = 180;     // solver time threshold inside tick
+      const LAG_CONSEC_LIMIT = 3;   // sustained slow frames before stopping
+
+      function buildLagSuggestions() {
+        const category = String(ui.systemType?.value || '');
+        const isPde = category === 'pde_linear' || category === 'pde_nonlinear' || runtime.systemType === 'pde';
+        const lines = [];
+        if (isPde) {
+          lines.push('- Reduce **Nx/Ny** (grid size)');
+          lines.push('- Reduce **Iters/frame**');
+          lines.push('- Reduce **steps**');
+        } else {
+          lines.push('- Reduce **Points/frame**');
+          lines.push('- Reduce **steps**');
+        }
+        lines.push('- Close other heavy tabs/apps; try refreshing the page');
+        return lines.join('\n');
+      }
+
       function tick() {
+        const nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const frameGap = nowMs - _tickPrevMs;
+        _tickPrevMs = nowMs;
+
+        // keyboard movement (game-like hold keys)
+        const nowMoveMs = nowMs;
+        const dtMoveSec = Math.min(0.05, Math.max(0, (nowMoveMs - _movePrevMs) / 1000));
+        _movePrevMs = nowMoveMs;
+        applyKeyboardMove(dtMoveSec);
+
         controls.update();
+
+        const solveStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
         streamSolveChunk();
+        const solveEnd = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const solveMs = solveEnd - solveStart;
+
+        // Detect sustained lag; stop simulation to avoid "frozen" feeling.
+        const tooSlow = (frameGap > LAG_FRAME_MS) || (solveMs > LAG_SOLVE_MS);
+        if (runtime.running && tooSlow) _lagConsecutive++;
+        else _lagConsecutive = 0;
+
+        if (runtime.running && _lagConsecutive >= LAG_CONSEC_LIMIT) {
+          setRunning(false);
+          _lagConsecutive = 0;
+          showError(
+            `Performance warning (auto-stopped):\n` +
+            `This device is struggling to keep up.\n` +
+            `frameGap=${frameGap.toFixed(0)}ms, solve=${solveMs.toFixed(0)}ms\n\n` +
+            `Suggestions:\n${buildLagSuggestions()}`
+          );
+        }
+
         if (ui.stats) {
-          const hInfo = isAdaptiveSolver(runtime.solver) ? ` h=<code>${runtime.h.toExponential(2)}</code> rej=<code>${runtime.rejectedSteps}</code>` : '';
-          const modeInfo = ` mode=<code>${runtime.systemType}</code>` + (runtime.systemType === 'sde' ? ` sigma=<code>${Number(runtime.sigma).toExponential(2)}</code>` : '');
-          ui.stats.innerHTML =
-            `t=<code>${runtime.t.toFixed(4)}</code> ` +
-            `step=<code>${runtime.stepIndex}</code> ` +
-            `points=<code>${runtime.count}</code> ` +
-            `skippedDerivs=<code>${runtime.skippedDerivs}</code>` +
-            hInfo +
-            modeInfo;
+          if (runtime.systemType === 'pde') {
+            const p = runtime.pde;
+            ui.stats.innerHTML =
+              `mode=<code>pde</code> ` +
+              `t=<code>${runtime.t.toFixed(4)}</code> ` +
+              `step=<code>${runtime.stepIndex}</code>/<code>${runtime.maxSteps}</code> ` +
+              `grid=<code>${p.nx}×${p.ny}</code> ` +
+              `range=<code>[${Number(p.uMin).toExponential(2)}, ${Number(p.uMax).toExponential(2)}]</code> ` +
+              `iters/frame=<code>${runtime.pointsPerFrame | 0}</code> ` +
+              `solve=<code>${solveMs.toFixed(0)}ms</code>`;
+          } else {
+            const hInfo = isAdaptiveSolver(runtime.solver) ? ` h=<code>${runtime.h.toExponential(2)}</code> rej=<code>${runtime.rejectedSteps}</code>` : '';
+            const modeInfo = ` mode=<code>${runtime.systemType}</code>` + (runtime.systemType === 'sde' ? ` sigma=<code>${Number(runtime.sigma).toExponential(2)}</code>` : '');
+            ui.stats.innerHTML =
+              `t=<code>${runtime.t.toFixed(4)}</code> ` +
+              `step=<code>${runtime.stepIndex}</code> ` +
+              `points=<code>${runtime.count}</code> ` +
+              `skippedDerivs=<code>${runtime.skippedDerivs}</code>` +
+              hInfo +
+              modeInfo +
+              ` solve=<code>${solveMs.toFixed(0)}ms</code>`;
+          }
         }
         renderer.render(scene, camera);
         requestAnimationFrame(tick);
@@ -2546,17 +5097,72 @@
         if (ui.dtBox) ui.dtBox.style.display = (st === 'map') ? 'none' : 'block';
         if (ui.odeRow) ui.odeRow.style.display = (st === 'ode') ? 'grid' : 'none';
         if (ui.sdeRow) ui.sdeRow.style.display = (st === 'sde') ? 'grid' : 'none';
-        if (ui.stepsLabel) ui.stepsLabel.textContent = (st === 'map') ? 'iterations' : (st === 'param') ? 'samples' : 'steps';
-        if (ui.dtLabel) ui.dtLabel.textContent = (st === 'sde') ? 'dt (SDE)' : (st === 'param') ? 't step' : 'dt';
+        const lang = getCurrentLang();
+        const d = I18N[lang] || I18N.vi;
+        if (ui.stepsLabel) ui.stepsLabel.textContent = (st === 'map') ? d.iterations : (st === 'param') ? d.samples : d.steps;
+        if (ui.dtLabel) ui.dtLabel.textContent = (st === 'sde') ? d.dtSde : (st === 'param') ? d.dtParam : d.dt;
+
+        // PDE mode: show PDE inputs and hide ODE/vector-state controls
+        const isPde = st === 'pde';
+        if (ui.pdeSection) ui.pdeSection.style.display = isPde ? 'block' : 'none';
+        if (ui.pdeBox) ui.pdeBox.style.display = isPde ? 'block' : 'none';
+        const isPdeNonlinear = category === 'pde_nonlinear';
+        if (ui.pdeNonlinearRow) ui.pdeNonlinearRow.style.display = (isPde && isPdeNonlinear) ? 'block' : 'none';
+        const isDae = st === 'dae';
+        if (ui.daeSection) ui.daeSection.style.display = isDae ? 'block' : 'none';
+        if (ui.daeBox) ui.daeBox.style.display = isDae ? 'block' : 'none';
+
+        const isHybrid = st === 'hybrid';
+        if (ui.hybridSection) ui.hybridSection.style.display = isHybrid ? 'block' : 'none';
+        if (ui.hybridBox) ui.hybridBox.style.display = isHybrid ? 'block' : 'none';
+
+        const isAlg = category === 'algebraic';
+        if (ui.algSection) ui.algSection.style.display = isAlg ? 'block' : 'none';
+        if (ui.algBox) ui.algBox.style.display = isAlg ? 'block' : 'none';
+        const algMode = String(ui.algMode?.value || 'parametric');
+        const isAlgImplicit = isAlg && algMode === 'implicit';
+        if (ui.algImplicitRow) ui.algImplicitRow.style.display = isAlgImplicit ? 'block' : 'none';
+        updateRenderModeOptionLabels(getCurrentLang());
+        if (ui.dimProjRow) ui.dimProjRow.style.display = isPde ? 'none' : 'grid';
+        if (ui.eqModeRow) ui.eqModeRow.style.display = (isPde || isDae || isAlgImplicit) ? 'none' : 'block';
+        const vecRow = ui.eqs ? ui.eqs.closest('.row') : null;
+        if (ui.simpleEqs) ui.simpleEqs.style.display = (isPde || isDae || isAlgImplicit) ? 'none' : ui.simpleEqs.style.display;
+        if (vecRow) vecRow.style.display = (isPde || isDae || isAlgImplicit) ? 'none' : vecRow.style.display;
+        if (ui.initRow) ui.initRow.style.display = (isPde || isAlgImplicit) ? 'none' : 'grid';
+        if (!isPde && !isDae && !isAlgImplicit) syncEqModeUI();
+        applyRenderMode();
+
+        // Streaming controls: transient doesn't apply to PDE; ppf becomes iterations/frame
+        if (ui.transientBox) ui.transientBox.style.display = isPde ? 'none' : 'block';
+        if (ui.ppfLabel) ui.ppfLabel.textContent = isPde ? ((lang === 'vi') ? 'Vòng lặp/frame' : 'Iters/frame') : d.ppf;
 
         // Solver-dependent visibility (ODE only)
         const isOde = st === 'ode';
         const adaptive = isOde && isAdaptiveSolver(String(ui.solver?.value || 'rk4'));
         if (ui.adaptiveRow1) ui.adaptiveRow1.style.display = adaptive ? 'grid' : 'none';
         if (ui.adaptiveRow2) ui.adaptiveRow2.style.display = adaptive ? 'grid' : 'none';
+
+        // DAE: force Euler and hide adaptive rows (not supported)
+        if (st === 'dae' && ui.solver) ui.solver.value = 'euler';
+        // Hybrid: fixed-step only
+        if (st === 'hybrid' && ui.solver) {
+          const s = String(ui.solver.value || 'rk4');
+          if (isAdaptiveSolver(s)) ui.solver.value = 'rk4';
+        }
       }
       ui.systemType?.addEventListener('change', () => syncSystemTypeUI());
       ui.solver?.addEventListener('change', () => syncSystemTypeUI());
+      ui.algMode?.addEventListener('change', () => {
+        // In algebraic mode, switching parametric/implicit should auto-pick a matching preset.
+        if (String(ui.systemType?.value || '') === 'algebraic') {
+          populatePresetDropdown(ui.preset.value);
+          const want = pickAlgebraicPresetForMode(getAlgMode());
+          if (want && Array.from(ui.preset.options).some(o => o.value === want)) ui.preset.value = want;
+          setPreset(ui.preset.value);
+          updatePresetButtons();
+        }
+        syncSystemTypeUI();
+      });
       syncSystemTypeUI();
 
       // ---- Resize ----
@@ -2571,6 +5177,27 @@
       resetSimulation();
       requestAnimationFrame(tick);
     })();
+
+    function removeThirdPartyDiv() {
+      // Find div with the specific styling pattern
+      const allDivs = document.querySelectorAll('div');
+      for (const div of allDivs) {
+        const style = div.getAttribute('style');
+        if (style && 
+            style.includes('position: fixed') && 
+            style.includes('bottom: 0%') && 
+            style.includes('left: 0%') && 
+            style.includes('right: 0%') && 
+            style.includes('width: 100%') && 
+            style.includes('height: 55px') && 
+            style.includes('z-index: 9999')) {
+            div.remove();
+            return true;
+        }
+      }
+      return false;
+    }
+
   </script>
 </body>
 </html>
