@@ -1,5 +1,5 @@
 <!doctype html>
-<html version="1.7.22" by="huynoobz" lang="en">
+<html version="1.7.36" by="huynoobz" lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -306,15 +306,6 @@
         <div class="grid" style="grid-template-columns: 1fr 110px;">
           <input id="settings-camspeed" type="range" min="0.2" max="3.5" step="0.05" value="1.0" />
           <input id="settings-camspeed-num" type="number" min="0.2" max="3.5" step="0.05" value="1.0" />
-        </div>
-      </div>
-      <div>
-        <label id="settings-mouselock-label">Mouse lock</label>
-        <div class="grid" style="grid-template-columns: 1fr;">
-          <button id="settings-mouselock-btn" title="Click to lock/unlock mouse">Lock</button>
-        </div>
-        <div class="hint" id="settings-mouselock-hint" style="margin-top:6px;">
-          Click Lock to lock pointer. Move mouse to look around. Press Esc to unlock.
         </div>
       </div>
       <div>
@@ -638,7 +629,7 @@
 
       <div class="grid row" id="ode-row">
         <div>
-          <label>Solver (ODE only)</label>
+          <label>Solver</label>
           <select id="solver">
             <option value="rk4" selected>RK4 (fixed step)</option>
             <option value="euler">Euler (fixed step)</option>
@@ -649,7 +640,7 @@
           </select>
         </div>
         <div class="hint" style="margin-top:22px;">
-          Map ignores dt/solver (uses iterations). SDE uses Euler–Maruyama.
+          ODE uses selected solver. Hybrid: fixed-step only. DAE: Euler only. Map ignores dt/solver. SDE uses Euler–Maruyama.
         </div>
       </div>
 
@@ -731,10 +722,9 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     (() => {
-      // ---- TODO progress: base/engine/gui/animation all in this file ----
-
       const errorEl = document.getElementById('error');
       const noticeEl = document.getElementById('notice');
+      const getNowMs = () => (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       function showError(message) {
         if (noticeEl) { noticeEl.style.display = 'none'; noticeEl.textContent = ''; }
         if (!message) {
@@ -774,14 +764,12 @@
       appEl.appendChild(renderer.domElement);
 
       const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
+      controls.enableDamping = false;
       controls.dampingFactor = 0.08;
       controls.zoomSpeed = 0.9;
       controls.rotateSpeed = 0.7;
       controls.panSpeed = 0.7;
 
-      // ---- Keyboard: game-like movement with arrow keys (supports holding multiple keys) ----
-      // ArrowLeft/Right: strafe; ArrowUp/Down: forward/back. Moves camera + controls.target (no zoom).
       function isTypingInControl() {
         const el = document.activeElement;
         if (!el) return false;
@@ -794,13 +782,13 @@
 
       // WASD movement (game-like). Shift = up, Ctrl = down.
       const _moveKeys = { left: false, right: false, forward: false, back: false, shiftUp: false, ctrlDown: false };
-      let _movePrevMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      let _movePrevMs = getNowMs();
       const _kbForward = new THREE.Vector3();
       const _kbRight = new THREE.Vector3();
       const _kbDelta = new THREE.Vector3();
       let cameraMoveSpeed = 1.0; // user setting
       let mouseLockEnabled = false;
-      let mouseSensitivity = 1.0;
+      let mouseSensitivity = 0.2;
       let pointerLocked = false;
       let _unlockRequested = false;
       const crosshairEl = document.getElementById('crosshair');
@@ -811,6 +799,18 @@
       let fpLookDist = 10;
       const _fpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
       const _fpDir = new THREE.Vector3();
+      const _orbitPrev = { enableDamping: !!controls.enableDamping, dampingFactor: Number(controls.dampingFactor) || 0.08 };
+      // Web-FPS style mouse look: accumulate mouse deltas, apply once per frame (prevents snapping/jitter).
+      const FP_MOUSE_SENS_BASE = 0.0022;
+      const FP_MAX_EVENT_DELTA = 140;   // clamp per mousemove event
+      const FP_IGNORE_DELTA = 900;      // ignore extreme spikes
+      const FP_SMOOTH = 0.35;           // exponential smoothing factor (0..1)
+      const FP_MAX_FRAME_DELTA = 85;    // cap total applied delta per frame (prevents big snaps on low FPS)
+      const FP_DROP_ON_FRAME_GAP_MS = 140; // if frame gap is huge, drop queued mouse deltas to avoid jump
+      let _fpPendingDX = 0;
+      let _fpPendingDY = 0;
+      let _fpSmDX = 0;
+      let _fpSmDY = 0;
 
       function syncFpAnglesFromCamera() {
         _fpEuler.setFromQuaternion(camera.quaternion, 'YXZ');
@@ -828,6 +828,32 @@
         _fpEuler.set(fpPitch, fpYaw, 0, 'YXZ');
         camera.quaternion.setFromEuler(_fpEuler);
       }
+      function applyFpMouseLookFrame(frameGapMs) {
+        if (!pointerLocked) return;
+        // If the frame stuttered badly, don't apply a large accumulated mouse delta as a single snap.
+        if (Number(frameGapMs) > FP_DROP_ON_FRAME_GAP_MS) {
+          _fpPendingDX = 0;
+          _fpPendingDY = 0;
+          _fpSmDX = 0;
+          _fpSmDY = 0;
+          return;
+        }
+        const dx = _fpPendingDX;
+        const dy = _fpPendingDY;
+        _fpPendingDX = 0;
+        _fpPendingDY = 0;
+        if (dx === 0 && dy === 0) return;
+        // Cap per-frame delta so low FPS cannot create a huge yaw/pitch jump.
+        const cdx = Math.max(-FP_MAX_FRAME_DELTA, Math.min(FP_MAX_FRAME_DELTA, dx));
+        const cdy = Math.max(-FP_MAX_FRAME_DELTA, Math.min(FP_MAX_FRAME_DELTA, dy));
+        _fpSmDX = _fpSmDX * (1 - FP_SMOOTH) + cdx * FP_SMOOTH;
+        _fpSmDY = _fpSmDY * (1 - FP_SMOOTH) + cdy * FP_SMOOTH;
+        const sens = FP_MOUSE_SENS_BASE * mouseSensitivity;
+        fpYaw += -_fpSmDX * sens;
+        fpPitch += -_fpSmDY * sens;
+        applyFpRotation();
+        updateFpTarget();
+      }
 
       function isPointerLocked() {
         return document.pointerLockElement === renderer.domElement;
@@ -835,7 +861,6 @@
 
       function setPointerLockEnabled(on) {
         mouseLockEnabled = !!on;
-        if (settings.mouseLockBtn) settings.mouseLockBtn.textContent = isPointerLocked() ? 'Unlock' : 'Lock';
         saveSettingsCache({ mouseLock: mouseLockEnabled ? 1 : 0 });
       }
 
@@ -860,26 +885,32 @@
 
       function onPointerLockChange() {
         pointerLocked = isPointerLocked();
-        if (settings.mouseLockBtn) settings.mouseLockBtn.textContent = pointerLocked ? 'Unlock' : 'Lock';
         if (crosshairEl) crosshairEl.style.display = pointerLocked ? 'block' : 'none';
 
         if (pointerLocked) {
           // Enter FPS mode: disable orbit UI interactions, keep target in front of camera.
+          _orbitPrev.enableDamping = !!controls.enableDamping;
+          _orbitPrev.dampingFactor = Number(controls.dampingFactor) || _orbitPrev.dampingFactor;
           controls.enabled = false;
+          // IMPORTANT: OrbitControls' damping/lookAt can fight FPS quaternion and cause "snap".
+          controls.enableDamping = false;
           fpLookDist = camera.position.distanceTo(controls.target) || 10;
+          _fpPendingDX = _fpPendingDY = 0;
+          _fpSmDX = _fpSmDY = 0;
           syncFpAnglesFromCamera();
           applyFpRotation();
           updateFpTarget();
-          controls.update();
         } else {
           // Exit FPS mode: re-enable OrbitControls.
           controls.enabled = true;
+          controls.enableDamping = _orbitPrev.enableDamping;
+          controls.dampingFactor = _orbitPrev.dampingFactor;
           controls.update();
 
           // If lock was lost unexpectedly (e.g. Alt key triggering browser menu),
           // keep the feature enabled and tell user to re-lock.
           if (mouseLockEnabled && !_unlockRequested) {
-            showNotice('Mouse lock lost. Click Lock to re-enter.');
+            showNotice('Mouse lock lost. Press Alt to re-enter.');
           }
           _unlockRequested = false;
         }
@@ -888,14 +919,14 @@
 
       function onLockedMouseMove(e) {
         if (!pointerLocked) return;
-        const dx = Number(e.movementX || 0);
-        const dy = Number(e.movementY || 0);
-        const sens = 0.0022 * mouseSensitivity;
-        // FPS-style: mouse right -> look right, mouse up -> look up
-        fpYaw += -dx * sens;
-        fpPitch += -dy * sens;
-        applyFpRotation();
-        updateFpTarget();
+        const rawDX = Number(e.movementX || 0);
+        const rawDY = Number(e.movementY || 0);
+        // Ignore extreme spikes (can happen on focus changes / OS quirks)
+        if (Math.abs(rawDX) > FP_IGNORE_DELTA || Math.abs(rawDY) > FP_IGNORE_DELTA) return;
+        const dx = Math.max(-FP_MAX_EVENT_DELTA, Math.min(FP_MAX_EVENT_DELTA, rawDX));
+        const dy = Math.max(-FP_MAX_EVENT_DELTA, Math.min(FP_MAX_EVENT_DELTA, rawDY));
+        _fpPendingDX += dx;
+        _fpPendingDY += dy;
       }
       document.addEventListener('mousemove', onLockedMouseMove);
 
@@ -942,10 +973,18 @@
         if (isTypingInControl()) return;
         const k = e.key;
         const code = e.code;
-        // Prevent Alt from focusing browser menu while pointer-locked (commonly drops pointer lock on Windows).
-        if (pointerLocked && (k === 'Alt' || code === 'AltLeft' || code === 'AltRight')) {
+        // Alt toggles pointer lock (and also prevents browser menu focus on Windows).
+        if ((k === 'Alt' || code === 'AltLeft' || code === 'AltRight') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
           e.preventDefault();
           e.stopPropagation();
+          if (pointerLocked) {
+            _unlockRequested = true;
+            exitPointerLock();
+          } else {
+            // Enable feature if user had it off, then lock
+            if (!mouseLockEnabled) setPointerLockEnabled(true);
+            requestPointerLock();
+          }
           return;
         }
         if (k === 'Shift') { _moveKeys.shiftUp = true; e.preventDefault(); return; }
@@ -959,12 +998,6 @@
       window.addEventListener('keyup', (e) => {
         const k = e.key;
         const code = e.code;
-        // Fallback: if Alt still caused unlock, allow Alt keyup (user gesture) to re-lock.
-        if (!pointerLocked && mouseLockEnabled && (k === 'Alt' || code === 'AltLeft' || code === 'AltRight')) {
-          e.preventDefault?.();
-          requestPointerLock();
-          return;
-        }
         if (k === 'Shift') _moveKeys.shiftUp = false;
         if (k === 'Control') _moveKeys.ctrlDown = false;
         if (code === 'KeyA') _moveKeys.left = false;
@@ -1160,9 +1193,6 @@
         camSpeedLabel: document.getElementById('settings-camspeed-label'),
         camSpeed: document.getElementById('settings-camspeed'),
         camSpeedNum: document.getElementById('settings-camspeed-num'),
-        mouseLockLabel: document.getElementById('settings-mouselock-label'),
-        mouseLockBtn: document.getElementById('settings-mouselock-btn'),
-        mouseLockHint: document.getElementById('settings-mouselock-hint'),
         mouseSenseLabel: document.getElementById('settings-mousesense-label'),
         mouseSense: document.getElementById('settings-mousesense'),
         mouseSenseNum: document.getElementById('settings-mousesense-num'),
@@ -1518,10 +1548,6 @@
         updateRenderModeOptionLabels(lang);
         if (settings.pointSizeLabel) settings.pointSizeLabel.textContent = (lang === 'vi') ? 'Kích thước điểm' : 'Point size';
         if (settings.camSpeedLabel) settings.camSpeedLabel.textContent = (lang === 'vi') ? 'Tốc độ camera' : 'Camera speed';
-        if (settings.mouseLockLabel) settings.mouseLockLabel.textContent = (lang === 'vi') ? 'Khoá chuột' : 'Mouse lock';
-        if (settings.mouseLockHint) settings.mouseLockHint.textContent = (lang === 'vi')
-          ? 'Bấm Lock để khoá chuột. Di chuyển chuột để xoay camera. Nhấn Esc để thoát.'
-          : 'Click Lock to lock pointer. Move mouse to look around. Press Esc to unlock.';
         if (settings.mouseSenseLabel) settings.mouseSenseLabel.textContent = (lang === 'vi') ? 'Độ nhạy chuột' : 'Mouse sensitivity';
         if (settings.resetView) settings.resetView.textContent = (lang === 'vi') ? 'Reset góc nhìn' : 'Reset view';
       }
@@ -1676,12 +1702,163 @@
           params: 'w=1\nc=0.08',
           init: '1, 0',
           dt: '0.01',
-          solver: 'dp45',
           absTol: '1e-8',
           relTol: '1e-5',
           dtMin: '1e-6',
           dtMax: '0.05',
           steps: '120000',
+          transient: '0',
+        },
+        'Linear ODE — 3D Rotation (perfect circle)': {
+          // x'=-y, y'=x, z'=0 (rotation in xy-plane)
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = -x2\nx2' = x1\nx3' = 0",
+          params: '',
+          init: '1, 0, 0',
+          dt: '0.01',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '12000',
+          transient: '0',
+        },
+        'Linear ODE — Spiral Sink (3D vortex in)': {
+          // x'=-x-y, y'=x-y, z'=-0.5 z
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = -x1 - x2\nx2' = x1 - x2\nx3' = -0.5*x3",
+          params: '',
+          init: '1, 0, 1',
+          dt: '0.01',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '12000',
+          transient: '0',
+        },
+        'Linear ODE — Spiral Source (3D vortex out)': {
+          // x'=x+y, y'=-x+y, z'=0.5 z
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x1 + x2\nx2' = -x1 + x2\nx3' = 0.5*x3",
+          params: '',
+          init: '0.2, 0.1, 0.2',
+          dt: '0.008',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '80000',
+          transient: '0',
+        },
+        'Linear ODE — Saddle (3D)': {
+          // x'=x, y'=-y, z'=-z
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x1\nx2' = -x2\nx3' = -x3",
+          params: '',
+          init: '0.2, 0.2, 0.2',
+          dt: '0.01',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '12000',
+          transient: '0',
+        },
+        'Linear ODE — Pure Scaling (a*x, a*y, a*z)': {
+          // x'=a x, y'=a y, z'=a z
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = a*x1\nx2' = a*x2\nx3' = a*x3",
+          params: 'a=0.12',
+          init: '0.6, 0.2, 0.4',
+          dt: '0.01',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '90000',
+          transient: '0',
+        },
+        'Linear ODE — Coupled Oscillator (3D ellipse)': {
+          // x'=y, y'=z, z'=-x
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x2\nx2' = x3\nx3' = -x1",
+          params: '',
+          init: '1, 0, 0',
+          dt: '0.01',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '12000',
+          transient: '0',
+        },
+        'Linear ODE — Shear Flow (x\'=y)': {
+          // x'=y, y'=0, z'=0
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x2\nx2' = 0\nx3' = 0",
+          params: '',
+          init: '0, 1, 0',
+          dt: '0.01',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '12000',
+          transient: '0',
+        },
+        'Linear ODE — Anisotropic Spiral (skewed)': {
+          // x'=-x-3y, y'=x-y, z'=-0.2 z
+          category: 'ode_linear',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = -x1 - 3*x2\nx2' = x1 - x2\nx3' = -0.2*x3",
+          params: '',
+          init: '1, 0, 1',
+          dt: '0.01',
+          absTol: '1e-8',
+          relTol: '1e-5',
+          dtMin: '1e-6',
+          dtMax: '0.05',
+          steps: '12000',
           transient: '0',
         },
         'Lü (Lu) System (2002) — Lü & Chen': {
@@ -1823,6 +2000,123 @@
           steps: '220000',
           transient: '200',
         },
+        'Linear Rotation Map (3D) — discrete rotation about z': {
+          // [x_{n+1}, y_{n+1}, z_{n+1}]^T = Rz(theta) [x_n, y_n, z_n]^T
+          category: 'map',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: 'cos(theta)*x - sin(theta)*y',
+          dy: 'sin(theta)*x + cos(theta)*y',
+          dz: 'z',
+          params: 'theta=0.1*pi',
+          init: '1, 0, 1',
+          dt: '1',
+          steps: '2000',
+          transient: '0',
+        },
+        '3D Spiral Contraction Map — spiral sink': {
+          // x_{n+1}=a x_n - y_n; y_{n+1}=x_n + a y_n; z_{n+1}=b z_n
+          category: 'map',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: 'a*x - y',
+          dy: 'x + a*y',
+          dz: 'b*z',
+          params: 'a=0.9\nb=0.95',
+          init: '1, 0, 1',
+          dt: '1',
+          steps: '2000',
+          transient: '0',
+        },
+        'Ikeda 3D Map — with z decay': {
+          // t = k - 0.4/(1 + x^2 + y^2)
+          // x_{n+1}=1+u(x cos t - y sin t)
+          // y_{n+1}=u(x sin t + y cos t)
+          // z_{n+1}=d z_n
+          category: 'map',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '1 + u*(x*cos(k - 0.4/(1 + x*x + y*y)) - y*sin(k - 0.4/(1 + x*x + y*y)))',
+          dy: 'u*(x*sin(k - 0.4/(1 + x*x + y*y)) + y*cos(k - 0.4/(1 + x*x + y*y)))',
+          dz: 'd*z',
+          params: 'k=0.9\nu=0.9\nd=0.98',
+          init: '0.1, 0, 1',
+          dt: '1',
+          steps: '2200',
+          transient: '200',
+        },
+        'Linear Saddle Map (3D)': {
+          // x_{n+1}=1.2 x_n; y_{n+1}=0.7 y_n; z_{n+1}=0.6 z_n
+          category: 'map',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '1.2*x',
+          dy: '0.7*y',
+          dz: '0.6*z',
+          params: '',
+          init: '0.2, 0.2, 0.2',
+          dt: '1',
+          steps: '1200',
+          transient: '0',
+        },
+        'Quaternion Rotation Map (3D) — smooth': {
+          // Rotate vector v by unit quaternion q:
+          // t = 2 * cross(qv, v)
+          // v' = v + qw*t + cross(qv, t)
+          category: 'map',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: "x + qw*(2*(qy*z - qz*y)) + (qy*(2*(qx*y - qy*x)) - qz*(2*(qz*x - qx*z)))",
+          dy: "y + qw*(2*(qz*x - qx*z)) + (qz*(2*(qy*z - qz*y)) - qx*(2*(qx*y - qy*x)))",
+          dz: "z + qw*(2*(qx*y - qy*x)) + (qx*(2*(qz*x - qx*z)) - qy*(2*(qy*z - qz*y)))",
+          params: [
+            'angle=0.1*pi',
+            'ax=1/sqrt(3)',
+            'ay=1/sqrt(3)',
+            'az=1/sqrt(3)',
+            'qw=cos(angle/2)',
+            'qx=ax*sin(angle/2)',
+            'qy=ay*sin(angle/2)',
+            'qz=az*sin(angle/2)',
+          ].join('\n'),
+          init: '1, 0, 1',
+          dt: '1',
+          steps: '2000',
+          transient: '0',
+        },
+        'Orthogonal Map (3D) — rotation matrix (random-like)': {
+          // X_{n+1} = Q X_n where Q is orthogonal (constructed from Euler angles)
+          // Q = Rz(a) * Ry(b) * Rx(c)
+          category: 'map',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '(cos(a)*cos(b))*x + (cos(a)*sin(b)*sin(c) - sin(a)*cos(c))*y + (cos(a)*sin(b)*cos(c) + sin(a)*sin(c))*z',
+          dy: '(sin(a)*cos(b))*x + (sin(a)*sin(b)*sin(c) + cos(a)*cos(c))*y + (sin(a)*sin(b)*cos(c) - cos(a)*sin(c))*z',
+          dz: '(-sin(b))*x + (cos(b)*sin(c))*y + (cos(b)*cos(c))*z',
+          params: 'a=1.1\nb=0.7\nc=2.0',
+          init: '1, 0, 0',
+          dt: '1',
+          steps: '200000',
+          transient: '0',
+        },
         'Noisy Lorenz (SDE) — Lorenz + Gaussian noise': {
           // SDE mode: x += f*dt + sigma*sqrt(dt)*N(0,1)
           systemType: 'sde',
@@ -1833,23 +2127,8 @@
           params: 'sigmaL=10\nrho=28\nbeta=8/3',
           init: '0.1, 0.1, 0.1',
           dt: '0.003',
-          steps: '200000',
+          steps: '2000',
           transient: '2000',
-        },
-        'x=y line (parametric)': {
-          // x(t)=t, y(t)=t, z(t)=0
-          category: 'algebraic',
-          systemType: 'param',
-          dim: '3',
-          projX: '1',
-          projY: '2',
-          projZ: '3',
-          eqs: 'x1 = t\nx2 = t\nx3 = 0',
-          params: '',
-          init: '0, 0, 0',
-          dt: '0.01',
-          steps: '200000',
-          transient: '0',
         },
         'Helix (parametric)': {
           // x(t)=cos(t), y(t)=sin(t), z(t)=0.05*t
@@ -2079,7 +2358,7 @@
           params: 'a=3\nb=4\nc=5\ndelta=pi/2',
           init: '0, 0, 0',
           dt: '0.003',
-          steps: '60000',
+          steps: '6000',
           transient: '0',
         },
         'Sprott (1994) — simple chaotic flow #1 (J.C. Sprott)': {
@@ -2135,7 +2414,6 @@
           params: '',
           dt: '0.00025',
           steps: '30000',
-          solver: 'rk4',
           sigma: '0',
           // PDE fields
           pdeType: 'heat2d',
@@ -2161,7 +2439,6 @@
           params: '',
           dt: '0.002',
           steps: '15000',
-          solver: 'rk4',
           sigma: '0',
           pdeType: 'heat2d',
           pdeNx: '90',
@@ -2186,7 +2463,6 @@
           params: '',
           dt: '0.0003',
           steps: '25000',
-          solver: 'rk4',
           sigma: '0',
           pdeType: 'heat2d',
           pdeNx: '90',
@@ -2211,7 +2487,6 @@
           params: 'r=2.0',
           dt: '0.00025',
           steps: '30000',
-          solver: 'rk4',
           sigma: '0',
           pdeType: 'heat2d',
           pdeNx: '90',
@@ -2237,7 +2512,6 @@
           params: '',
           dt: '0.0002',
           steps: '32000',
-          solver: 'rk4',
           sigma: '0',
           pdeType: 'heat2d',
           pdeNx: '90',
@@ -2265,7 +2539,6 @@
           dt: '0.01',
           steps: '120000',
           transient: '2000',
-          solver: 'euler',
           daeNx: '1',
           daeF: "x1' = -x1 + x2",
           daeG: "0 = x2 - x1^2",
@@ -2298,7 +2571,6 @@
           dt: '0.05',
           steps: '120000',
           transient: '0',
-          solver: 'rk4',
         },
         'Hamilton — simple pendulum (q,p)': {
           category: 'hamilton',
@@ -2314,7 +2586,6 @@
           dt: '0.01',
           steps: '220000',
           transient: '2000',
-          solver: 'rk4',
         },
         'Gradient flow — Rosenbrock (2D)': {
           category: 'optimization',
@@ -2330,7 +2601,6 @@
           dt: '0.001',
           steps: '200000',
           transient: '0',
-          solver: 'rk4',
         },
         'Markov — 3-state distribution (map)': {
           category: 'markov',
@@ -2346,7 +2616,6 @@
           dt: '1',
           steps: '120000',
           transient: '0',
-          solver: 'rk4',
         },
         'Custom': {
           dx: 'sigma*(y-x)',
@@ -2368,7 +2637,7 @@
       const SAVED_PRESETS_KEY = 'ode_saved_presets_v1';
       const DEFAULT_PRESET_KEY = 'Lorenz (1963) — Edward Lorenz / “butterfly”';
       const DEFAULT_PRESET_BY_TYPE = {
-        algebraic: 'x=y line (parametric)',
+        algebraic: 'Lissajous Knot (parametric)',
         ode_linear: 'Linear ODE — damped oscillator (2D)',
         ode_nonlinear: DEFAULT_PRESET_KEY,
         map: 'Henon map (Hénon 1976) — discrete-time',
@@ -2464,7 +2733,6 @@
             dtMin: String(item.dtMin ?? ''),
             dtMax: String(item.dtMax ?? ''),
             steps: String(item.steps ?? ''),
-            solver: String(item.solver ?? ''),
             systemType,
             sigma: String(item.sigma ?? ''),
             dim: String(item.dim ?? ''),
@@ -2511,6 +2779,35 @@
       }
 
       let presets = {};
+
+      // ---- Remember solver per category (so ODE-linear vs ODE-nonlinear can differ) ----
+      function getSolverPrefsFromCache(settingsCacheObj) {
+        const m = settingsCacheObj && typeof settingsCacheObj === 'object' ? settingsCacheObj.solverPrefs : null;
+        return (m && typeof m === 'object') ? m : {};
+      }
+      function saveSolverPrefForCategory(category, solverValue) {
+        try {
+          const settingsCacheObj = loadSettingsCache();
+          const prev = getSolverPrefsFromCache(settingsCacheObj);
+          const next = { ...prev, [String(category || '')]: String(solverValue || '') };
+          saveSettingsCache({ solverPrefs: next });
+        } catch (_) {}
+      }
+      function restoreSolverPrefForCategory(category) {
+        try {
+          if (!ui.solver) return;
+          const cat = String(category || '');
+          const settingsCacheObj = loadSettingsCache();
+          const prefs = getSolverPrefsFromCache(settingsCacheObj);
+          const want = String(prefs[cat] || '');
+          if (!want) return;
+          // Only apply if current preset does not explicitly specify a solver.
+          const p = presets[ui.preset?.value || ''];
+          if (p && p.solver) return;
+          // Validate against available <option> values.
+          if (Array.from(ui.solver.options).some(o => o.value === want)) ui.solver.value = want;
+        } catch (_) {}
+      }
 
       function normalizePreset(p) {
         // Remove run-cache fields from presets so they don't override user run settings.
@@ -2579,8 +2876,9 @@
         if (p.dtMin != null && ui.dtMin) ui.dtMin.value = p.dtMin;
         if (p.dtMax != null && ui.dtMax) ui.dtMax.value = p.dtMax;
         ui.steps.value = String(p.steps ?? '');
-        if (p.solver && ui.solver) ui.solver.value = p.solver;
-        if (ui.systemType) ui.systemType.value = getPresetCategory(p);
+        // IMPORTANT: "Custom" is a template and should not force-switch categories.
+        // Otherwise, saving a custom preset under ODE–Linear can get mislabeled as ODE–Nonlinear.
+        if (ui.systemType && name !== CUSTOM_PRESET_KEY) ui.systemType.value = getPresetCategory(p);
         if (p.sigma != null && ui.sigma) ui.sigma.value = p.sigma;
         // PDE (linear)
         if (p.pdeType != null && ui.pdeType) ui.pdeType.value = String(p.pdeType);
@@ -2656,7 +2954,6 @@
           dtMin: ui.dtMin?.value ?? '',
           dtMax: ui.dtMax?.value ?? '',
           steps: ui.steps.value,
-          solver: ui.solver.value,
           // PDE (linear)
           pdeType: ui.pdeType?.value ?? '',
           pdeNx: ui.pdeNx?.value ?? '',
@@ -2770,7 +3067,6 @@
           }
         } else {
           if (isAlgebraicPresetMatching('Lissajous Knot (parametric)', 'parametric')) return 'Lissajous Knot (parametric)';
-          if (isAlgebraicPresetMatching('x=y line (parametric)', 'parametric')) return 'x=y line (parametric)';
           for (const name of Object.keys(presets)) {
             if (isAlgebraicPresetMatching(name, 'parametric')) return name;
           }
@@ -3509,7 +3805,8 @@
       function resetView() {
         camera.position.set(2.8, 1.9, 3.2);
         controls.target.set(0, 0, 0);
-        controls.update();
+        if (!pointerLocked) controls.update();
+        else updateFpTarget();
       }
 
       function setRunning(r) {
@@ -4989,14 +5286,6 @@
       // mouse lock + sensitivity
       setPointerLockEnabled(settingsCache.mouseLock != null ? !!settingsCache.mouseLock : false);
       setMouseSensitivity((settingsCache.mouseSensitivity != null) ? settingsCache.mouseSensitivity : 1.0);
-      settings.mouseLockBtn?.addEventListener('click', () => {
-        if (!mouseLockEnabled) {
-          // turn on and lock
-          setPointerLockEnabled(true);
-        }
-        if (isPointerLocked()) { _unlockRequested = true; exitPointerLock(); }
-        else requestPointerLock();
-      });
       settings.mouseSense?.addEventListener('input', () => setMouseSensitivity(settings.mouseSense.value));
       settings.mouseSenseNum?.addEventListener('input', () => setMouseSensitivity(settings.mouseSenseNum.value));
 
@@ -5005,7 +5294,7 @@
 
       // ---- Animation loop ----
       // Lag / freeze watchdog: if frames are consistently too slow, auto-stop and show suggestions.
-      let _tickPrevMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      let _tickPrevMs = getNowMs();
       let _lagConsecutive = 0;
       const LAG_FRAME_MS = 450;     // frame gap threshold
       const LAG_SOLVE_MS = 180;     // solver time threshold inside tick
@@ -5028,7 +5317,7 @@
       }
 
       function tick() {
-        const nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const nowMs = getNowMs();
         const frameGap = nowMs - _tickPrevMs;
         _tickPrevMs = nowMs;
 
@@ -5036,17 +5325,26 @@
         const nowMoveMs = nowMs;
         const dtMoveSec = Math.min(0.05, Math.max(0, (nowMoveMs - _movePrevMs) / 1000));
         _movePrevMs = nowMoveMs;
+
+        // Web-FPS: apply mouse-look once per frame (before movement)
+        if (pointerLocked) applyFpMouseLookFrame(frameGap);
         applyKeyboardMove(dtMoveSec);
 
-        controls.update();
+        // OrbitControls.update() can fight FPS quaternion while pointer-locked (causes snapping).
+        if (!pointerLocked) controls.update();
 
-        const solveStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const solveStart = getNowMs();
         streamSolveChunk();
-        const solveEnd = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const solveEnd = getNowMs();
         const solveMs = solveEnd - solveStart;
 
         // Detect sustained lag; stop simulation to avoid "frozen" feeling.
-        const tooSlow = (frameGap > LAG_FRAME_MS) || (solveMs > LAG_SOLVE_MS);
+        // While user is actively controlling the camera, rendering cost can spike (frameGap),
+        // but that shouldn't auto-stop the simulation. Solver lag (solveMs) still counts.
+        const userInteracting = pointerLocked || anyMoveKeyDown();
+        const tooSlowSolve = (solveMs > LAG_SOLVE_MS);
+        const tooSlowFrame = (frameGap > LAG_FRAME_MS);
+        const tooSlow = tooSlowSolve || (tooSlowFrame && !userInteracting);
         if (runtime.running && tooSlow) _lagConsecutive++;
         else _lagConsecutive = 0;
 
@@ -5092,10 +5390,13 @@
       function syncSystemTypeUI() {
         const category = String(ui.systemType?.value || 'ode_nonlinear');
         const st = categoryToEngineType(category) || 'ode';
+        // Restore remembered solver for this category when appropriate.
+        restoreSolverPrefForCategory(category);
         // Map: hide dt + ODE solver/adaptive; SDE: show dt + sigma, hide ODE solver/adaptive.
         // Param: show dt + hide ODE solver/adaptive/sigma.
         if (ui.dtBox) ui.dtBox.style.display = (st === 'map') ? 'none' : 'block';
-        if (ui.odeRow) ui.odeRow.style.display = (st === 'ode') ? 'grid' : 'none';
+        const showSolver = (st === 'ode' || st === 'hybrid' || st === 'dae');
+        if (ui.odeRow) ui.odeRow.style.display = showSolver ? 'grid' : 'none';
         if (ui.sdeRow) ui.sdeRow.style.display = (st === 'sde') ? 'grid' : 'none';
         const lang = getCurrentLang();
         const d = I18N[lang] || I18N.vi;
@@ -5144,6 +5445,7 @@
 
         // DAE: force Euler and hide adaptive rows (not supported)
         if (st === 'dae' && ui.solver) ui.solver.value = 'euler';
+        if (ui.solver) ui.solver.disabled = (st === 'dae'); // DAE is Euler-only
         // Hybrid: fixed-step only
         if (st === 'hybrid' && ui.solver) {
           const s = String(ui.solver.value || 'rk4');
@@ -5151,7 +5453,14 @@
         }
       }
       ui.systemType?.addEventListener('change', () => syncSystemTypeUI());
-      ui.solver?.addEventListener('change', () => syncSystemTypeUI());
+      ui.solver?.addEventListener('change', () => {
+        const category = String(ui.systemType?.value || 'ode_nonlinear');
+        const st = categoryToEngineType(category) || 'ode';
+        if (st === 'ode' || st === 'hybrid') {
+          saveSolverPrefForCategory(category, ui.solver.value);
+        }
+        syncSystemTypeUI();
+      });
       ui.algMode?.addEventListener('change', () => {
         // In algebraic mode, switching parametric/implicit should auto-pick a matching preset.
         if (String(ui.systemType?.value || '') === 'algebraic') {
@@ -5178,26 +5487,74 @@
       requestAnimationFrame(tick);
     })();
 
+    // Anti 3rd-party injected overlays/bars (common on some hosting / extensions).
+    // Conservative: only removes elements that look like injected overlays with extreme z-index,
+    // and never removes our app UI by id.
     function removeThirdPartyDiv() {
-      // Find div with the specific styling pattern
-      const allDivs = document.querySelectorAll('div');
-      for (const div of allDivs) {
-        const style = div.getAttribute('style');
-        if (style && 
-            style.includes('position: fixed') && 
-            style.includes('bottom: 0%') && 
-            style.includes('left: 0%') && 
-            style.includes('right: 0%') && 
-            style.includes('width: 100%') && 
-            style.includes('height: 55px') && 
-            style.includes('z-index: 9999')) {
-            div.remove();
-            return true;
+      const KEEP_IDS = new Set([
+        'app', 'ui-panel', 'settings-panel', 'open-settings',
+        'error', 'notice', 'crosshair'
+      ]);
+
+      let removed = false;
+      const candidates = document.querySelectorAll('div, iframe');
+      for (const el of candidates) {
+        if (!(el instanceof HTMLElement)) continue;
+        if (el.id && KEEP_IDS.has(el.id)) continue;
+        if (el.closest && el.closest('#ui-panel, #settings-panel')) continue;
+
+        const cs = window.getComputedStyle(el);
+        const pos = cs.position;
+        const z = Number.parseInt(cs.zIndex || '0', 10);
+        const h = el.getBoundingClientRect ? el.getBoundingClientRect().height : 0;
+
+        // Case 1: the known bottom bar pattern you hit before (keep it working)
+        const styleAttr = (el.getAttribute && el.getAttribute('style')) ? String(el.getAttribute('style')) : '';
+        const looksLikeBottomBar =
+          styleAttr.includes('position: fixed') &&
+          (styleAttr.includes('bottom: 0%') || styleAttr.includes('bottom:0')) &&
+          (styleAttr.includes('left: 0%') || styleAttr.includes('left:0')) &&
+          (styleAttr.includes('right: 0%') || styleAttr.includes('right:0')) &&
+          styleAttr.includes('width: 100%') &&
+          (styleAttr.includes('height: 55px') || styleAttr.includes('height:55px')) &&
+          (styleAttr.includes('z-index: 9999') || styleAttr.includes('z-index:9999'));
+
+        // Case 2: generic injected overlay (very high z-index + fixed) often containing iframes/ads
+        const hasIframe = !!el.querySelector?.('iframe');
+        const text = (el.textContent || '').toLowerCase();
+        const looksLikeAd =
+          text.includes('advert') || text.includes('ads') || text.includes('sponsored') ||
+          text.includes('buy now') || text.includes('download');
+
+        const looksLikeOverlay =
+          pos === 'fixed' &&
+          Number.isFinite(z) &&
+          z >= 9999 &&
+          // avoid removing tiny legit UI; injected bars/overlays are usually not tiny
+          h >= 30;
+
+        // Remove only if we have strong signals
+        if (looksLikeBottomBar || (looksLikeOverlay && (hasIframe || looksLikeAd))) {
+          el.remove();
+          removed = true;
         }
       }
-      return false;
+      return removed;
     }
 
+    // Keep it enforced: observe DOM changes + periodic fallback
+    (() => {
+      try { removeThirdPartyDiv(); } catch (_) {}
+      try {
+        const obs = new MutationObserver(() => {
+          try { removeThirdPartyDiv(); } catch (_) {}
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+      } catch (_) {}
+      window.setInterval(() => {
+        try { removeThirdPartyDiv(); } catch (_) {}
+      }, 1000);
+    })();
   </script>
 </body>
 </html>
