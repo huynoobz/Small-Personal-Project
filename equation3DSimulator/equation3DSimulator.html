@@ -1,5 +1,5 @@
 <!doctype html>
-<html version="1.7.36" by="huynoobz" lang="en">
+<html version="2.5.1" by="huynoobz" lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -430,7 +430,7 @@
           <select id="pdeType">
             <option value="heat2d" selected>Heat / Diffusion (2D): u_t = α(uxx + uyy) + S</option>
           </select>
-        </div>
+    </div>
 
         <div class="grid row">
           <div>
@@ -489,7 +489,7 @@
           </div>
         </div>
 
-        <div class="row">
+      <div class="row">
           <label>Initial condition u(x,y,t=0)</label>
           <textarea id="pdeU0" placeholder="Example: exp(-20*(x^2+y^2))"></textarea>
         </div>
@@ -508,6 +508,19 @@
       <div id="dae-box" class="section-box" style="display:none;">
         <div class="grid row">
           <div>
+            <label>DAE Index</label>
+            <select id="daeIndex">
+              <option value="1" selected>Index-1</option>
+              <option value="2">Index-2</option>
+              <option value="3">Index-3</option>
+            </select>
+          </div>
+          <div class="hint" style="margin-top:22px;" id="daeIndexHint">
+            <span id="daeIndexHintText">Index-1: g depends on algebraic variables y</span>
+          </div>
+        </div>
+        <div class="grid row">
+          <div>
             <label>Nx (differential vars)</label>
             <input id="daeNx" value="1" />
           </div>
@@ -519,9 +532,15 @@
           <label>DAE differential equations (Nx lines): x' = f(x,y,t)</label>
           <textarea id="daeF" placeholder="Example (Nx=1):&#10;x1' = -x1 + x2"></textarea>
         </div>
+        <div class="row" id="daeGPosRow" style="display:none;">
+          <label id="daeGPosLabel">Position constraint g(x) = 0 (Ny lines, for index-2/3)</label>
+          <textarea id="daeGPos" placeholder="Example:&#10;0 = x1^2 + x2^2 + x3^2 - R^2"></textarea>
+          <div class="hint">This is the original constraint. The velocity constraint (below) will be used for solving.</div>
+        </div>
         <div class="row">
-          <label>DAE algebraic constraints (Ny lines): 0 = g(x,y,t)</label>
-          <textarea id="daeG" placeholder="Example (Ny=1):&#10;0 = x2 - x1^2"></textarea>
+          <label id="daeGLabel">Constraint for solving (Ny lines): 0 = g(x,y,t) or dg/dt</label>
+          <textarea id="daeG" placeholder="Example (index-1):&#10;0 = x2 - x1^2&#10;Example (index-2):&#10;0 = 2*x1*x4 + 2*x2*x5 + 2*x3*x6"></textarea>
+          <div class="hint" id="daeGHint">For index-1: g(x,y,t). For index-2/3: velocity constraint dg/dt (differentiated form).</div>
         </div>
         <div class="grid row" data-advanced="1">
           <div>
@@ -687,6 +706,12 @@
           <input id="ppf" value="1500" />
         </div>
       </div>
+    </div>
+
+    <div id="section-instances" class="section-title">Instances</div>
+    <div class="section-box">
+      <div id="instances-list" style="margin-bottom: 10px;"></div>
+      <button id="add-instance" style="width: 100%;">+ Add Instance</button>
     </div>
 
     <div class="buttons row">
@@ -1032,6 +1057,9 @@
         panelTitle: document.getElementById('panel-title'),
         sectionModel: document.getElementById('section-model'),
         sectionRun: document.getElementById('section-run'),
+        sectionInstances: document.getElementById('section-instances'),
+        instancesList: document.getElementById('instances-list'),
+        addInstance: document.getElementById('add-instance'),
         mainHint: document.getElementById('main-hint'),
         stats: document.getElementById('stats'),
         preset: document.getElementById('preset'),
@@ -1102,11 +1130,18 @@
         // DAE
         daeSection: document.getElementById('dae-section'),
         daeBox: document.getElementById('dae-box'),
+        daeIndex: document.getElementById('daeIndex'),
         daeNx: document.getElementById('daeNx'),
         daeF: document.getElementById('daeF'),
+        daeGPos: document.getElementById('daeGPos'),
         daeG: document.getElementById('daeG'),
         daeTol: document.getElementById('daeTol'),
         daeNewtonIters: document.getElementById('daeNewtonIters'),
+        daeIndexHint: document.getElementById('daeIndexHintText'),
+        daeGLabel: document.getElementById('daeGLabel'),
+        daeGPosLabel: document.getElementById('daeGPosLabel'),
+        daeGPosRow: document.getElementById('daeGPosRow'),
+        daeGHint: document.getElementById('daeGHint'),
         // Hybrid
         hybridSection: document.getElementById('hybrid-section'),
         hybridBox: document.getElementById('hybrid-box'),
@@ -1203,6 +1238,7 @@
       makePanelCollapsible(ui.sectionModel, 'model');
       makePanelCollapsible(ui.algSection, 'algebraic');
       makePanelCollapsible(ui.sectionRun, 'run');
+      if (ui.sectionInstances) makePanelCollapsible(ui.sectionInstances, 'instances');
       const SETTINGS_OPEN_KEY = 'sim_settings_open';
       const SETTINGS_CACHE_KEY = 'sim_settings_cache_v1';
       function loadSettingsCache() {
@@ -1248,6 +1284,10 @@
           sectionModel: 'Mô hình',
           // sectionWizards removed
           sectionRun: 'Chạy mô phỏng',
+          sectionInstances: 'Các mô phỏng',
+          addInstance: '+ Thêm mô phỏng',
+          removeInstance: 'Xóa',
+          toggleInstance: 'Ẩn/Hiện',
           systemCategory: 'Phân loại hệ',
           preset: 'Preset',
           presetSearch: 'Tìm preset',
@@ -1307,6 +1347,10 @@
           sectionModel: 'Model',
           // sectionWizards removed
           sectionRun: 'Run',
+          sectionInstances: 'Instances',
+          addInstance: '+ Add Instance',
+          removeInstance: 'Remove',
+          toggleInstance: 'Hide/Show',
           systemCategory: 'System category',
           preset: 'Preset',
           presetSearch: 'Search presets',
@@ -1426,6 +1470,8 @@
         if (ui.openControls) ui.openControls.textContent = d.openControls;
         if (ui.sectionModel) ui.sectionModel.textContent = d.sectionModel;
         if (ui.sectionRun) ui.sectionRun.textContent = d.sectionRun;
+        if (ui.sectionInstances) ui.sectionInstances.textContent = d.sectionInstances;
+        if (ui.addInstance) ui.addInstance.textContent = d.addInstance;
 
         // Basic/Advanced removed
 
@@ -1488,9 +1534,11 @@
 
         // DAE labels (minimal)
         if (ui.daeSection) ui.daeSection.textContent = 'DAE';
+        if (ui.daeIndex) setLabelForControl(ui.daeIndex, (lang === 'vi') ? 'Chỉ số DAE' : 'DAE Index');
+        updateDaeIndexHint();
         if (ui.daeNx) setLabelForControl(ui.daeNx, (lang === 'vi') ? 'Nx (biến vi phân)' : 'Nx (differential vars)');
         if (ui.daeF) setLabelForControl(ui.daeF, (lang === 'vi') ? "Phương trình vi phân (Nx dòng): x' = f" : "DAE differential eqs (Nx lines): x' = f");
-        if (ui.daeG) setLabelForControl(ui.daeG, (lang === 'vi') ? 'Ràng buộc đại số (Ny dòng): 0 = g' : 'DAE algebraic constraints (Ny lines): 0 = g');
+        if (ui.daeG) updateDaeGLabel();
         if (ui.daeTol) setLabelForControl(ui.daeTol, (lang === 'vi') ? 'Newton tol' : 'Newton tol');
         if (ui.daeNewtonIters) setLabelForControl(ui.daeNewtonIters, (lang === 'vi') ? 'Newton tối đa' : 'Newton max iters');
 
@@ -2119,6 +2167,7 @@
         },
         'Noisy Lorenz (SDE) — Lorenz + Gaussian noise': {
           // SDE mode: x += f*dt + sigma*sqrt(dt)*N(0,1)
+          category: 'stochastic',
           systemType: 'sde',
           sigma: '0.8',
           dx: 'sigmaL*(y-x)',
@@ -2127,8 +2176,185 @@
           params: 'sigmaL=10\nrho=28\nbeta=8/3',
           init: '0.1, 0.1, 0.1',
           dt: '0.003',
-          steps: '2000',
-          transient: '2000',
+          steps: '200000',
+          transient: '0',
+        },
+        'Stochastic Hopf Oscillator (3D embedding)': {
+          // dr = (μ − r²)r dt + σ dW, dθ = ω dt
+          // x = r cosθ, y = r sinθ, z = h
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '(mu - (x*x + y*y))*x - omega*y',
+          dy: 'omega*x + (mu - (x*x + y*y))*y',
+          dz: '0',
+          params: 'mu=1\nomega=1',
+          init: '0.5, 0, 0.1',
+          dt: '0.01',
+          sigma: '0.3',
+          steps: '200000',
+          transient: '0',
+        },
+        'Stochastic Double Gyre Flow (3D)': {
+          // vₓ = −π A sin(π f(x,t)) cos(π y)
+          // vᵧ =  π A cos(π f(x,t)) sin(π y)
+          // v𝓏 = 0
+          // f(x,t) = a(t)*x² + b(t)*x, a(t) = ε sin(ωt), b(t) = 1 - 2ε sin(ωt)
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '-pi*A*sin(pi*(eps*sin(omega*t)*x*x + (1 - 2*eps*sin(omega*t))*x))*cos(pi*y)',
+          dy: 'pi*A*cos(pi*(eps*sin(omega*t)*x*x + (1 - 2*eps*sin(omega*t))*x))*sin(pi*y)',
+          dz: '0',
+          params: 'A=0.1\neps=0.25\nomega=2*pi/10',
+          init: '0.1, 0.1, 0',
+          dt: '0.01',
+          sigma: '0.15',
+          steps: '200000',
+          transient: '0',
+        },
+        '3D Ornstein–Uhlenbeck (OU) in a Potential Well': {
+          // dx = −αx dt + σ dWₓ
+          // dy = −αy dt + σ dWᵧ
+          // dz = −αz dt + σ dW𝓏
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '-alpha*x',
+          dy: '-alpha*y',
+          dz: '-alpha*z',
+          params: 'alpha=0.5',
+          init: '1, 1, 1',
+          dt: '0.01',
+          sigma: '0.4',
+          steps: '200000',
+          transient: '0',
+        },
+        'Stochastic Kuramoto Ensemble (3D embedding)': {
+          // dθᵢ = ωᵢ dt + (K/N) Σ sin(θⱼ − θᵢ) dt + σ dWᵢ
+          // Simplified: single oscillator with coupling term
+          // x = cosθ, y = sinθ, z = 0 or random direction
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '-(omega + K*sin(theta_mean - atan2(y, x)))*y',
+          dy: '(omega + K*sin(theta_mean - atan2(y, x)))*x',
+          dz: '0.1*sin(2*atan2(y, x))',
+          params: 'omega=1\nK=0.5\ntheta_mean=0',
+          init: '1, 0, 0',
+          dt: '0.01',
+          sigma: '0.2',
+          steps: '200000',
+          transient: '0',
+        },
+        'Stochastic Reaction–Diffusion Particle Tracking (3D)': {
+          // dx = μ dt + √(2D) dW with soft attraction force F = −∇U(r)
+          // U(r) = -A*exp(-r²/(2*σ²)) (Gaussian well)
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: 'mu_x - A*x*exp(-(x*x + y*y + z*z)/(2*sigmaU*sigmaU))/(sigmaU*sigmaU)',
+          dy: 'mu_y - A*y*exp(-(x*x + y*y + z*z)/(2*sigmaU*sigmaU))/(sigmaU*sigmaU)',
+          dz: 'mu_z - A*z*exp(-(x*x + y*y + z*z)/(2*sigmaU*sigmaU))/(sigmaU*sigmaU)',
+          params: 'mu_x=0\nmu_y=0\nmu_z=0\nA=2\nsigmaU=0.5',
+          init: '0.5, 0.5, 0.5',
+          dt: '0.01',
+          sigma: '0.3',
+          steps: '200000',
+          transient: '0',
+        },
+        'Stochastic Rigid Body Rotation': {
+          // Euler equations: dω = I⁻¹(τ − ω×Iω)dt + σ dW
+          // Quaternion rotation: dq = ½ q⊗ω dt
+          // Simplified: 3D rotation with noise
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: 'omega_y*z - omega_z*y',
+          dy: 'omega_z*x - omega_x*z',
+          dz: 'omega_x*y - omega_y*x',
+          params: 'omega_x=0.5\nomega_y=0.3\nomega_z=0.2',
+          init: '1, 0, 0',
+          dt: '0.01',
+          sigma: '0.15',
+          steps: '200000',
+          transient: '0',
+        },
+        'Random Walk on a Sphere (S² diffusion)': {
+          // Geometric Brownian motion constrained: dx = P(x) dW
+          // P = I − xxᵀ (projection onto tangent space)
+          // Simplified: drift toward sphere + noise
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '-(x*x + y*y + z*z - 1)*x',
+          dy: '-(x*x + y*y + z*z - 1)*y',
+          dz: '-(x*x + y*y + z*z - 1)*z',
+          params: '',
+          init: '1, 0, 0',
+          dt: '0.01',
+          sigma: '0.2',
+          steps: '200000',
+          transient: '0',
+        },
+        'Stochastic Gradient Flow in 3D Potential Landscape': {
+          // dx = −∇U(x) dt + σ dW
+          // U(x) = (x² + y² + z²)²/4 - (x² + y² + z²)/2 (multi-well potential)
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '-(x*x + y*y + z*z - 1)*x',
+          dy: '-(x*x + y*y + z*z - 1)*y',
+          dz: '-(x*x + y*y + z*z - 1)*z',
+          params: '',
+          init: '0.5, 0.5, 0.5',
+          dt: '0.01',
+          sigma: '0.25',
+          steps: '200000',
+          transient: '0',
+        },
+        'Stochastic Attractors with Multiplicative Noise': {
+          // dx = (σ(y−x))dt + αx dW (noise depends on state)
+          // Modified Lorenz with multiplicative noise
+          category: 'stochastic',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: 'sigmaL*(y-x)',
+          dy: 'x*(rho-z)-y',
+          dz: 'x*y-beta*z',
+          params: 'sigmaL=10\nrho=28\nbeta=8/3',
+          init: '0.1, 0.1, 0.1',
+          dt: '0.003',
+          sigma: '0.5',
+          steps: '200000',
+          transient: '0',
         },
         'Helix (parametric)': {
           // x(t)=cos(t), y(t)=sin(t), z(t)=0.05*t
@@ -2527,7 +2753,7 @@
           pdeSource: '0',
           pdeNonlinear: 'u - u^3',
         },
-        "DAE — x'=-x+y, 0=y-x^2": {
+        "DAE — x'=-x+y, 0=y-x^2 (index-1)": {
           category: 'dae',
           dx: '',
           dy: '',
@@ -2537,13 +2763,243 @@
           // state is [x1, y1] => x1 is differential, x2 is algebraic
           init: '0.2, 0.04',
           dt: '0.01',
-          steps: '120000',
+          steps: '1200',
           transient: '2000',
+          daeIndex: '1',
           daeNx: '1',
           daeF: "x1' = -x1 + x2",
           daeG: "0 = x2 - x1^2",
           daeTol: '1e-10',
           daeNewtonIters: '12',
+        },
+        'DAE — Simple Control System (index-1)': {
+          // x' = -x + y, y' = x - y + lambda, constraint: y = x^2 + lambda
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: '',
+          // state: [x, y, lambda]
+          init: '0.5, 0.25, 0',
+          dt: '0.01',
+          steps: '5000',
+          transient: '0',
+          daeIndex: '1',
+          daeNx: '2',
+          daeF: "x1' = -x1 + x2\nx2' = x1 - x2 + x3",
+          daeG: '0 = x2 - x1^2 - x3',
+          daeTol: '1e-8',
+          daeNewtonIters: '12',
+        },
+        'DAE — Linear Constraint System (index-1)': {
+          // x' = y, y' = -x + lambda, constraint: y = x + lambda
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: '',
+          // state: [x, y, lambda]
+          init: '1, 1, 0',
+          dt: '0.01',
+          steps: '5000',
+          transient: '0',
+          daeIndex: '1',
+          daeNx: '2',
+          daeF: "x1' = x2\nx2' = -x1 + x3",
+          daeG: '0 = x2 - x1 - x3',
+          daeTol: '1e-8',
+          daeNewtonIters: '12',
+        },
+        'DAE — RLC Circuit with Control (index-1)': {
+          // RLC circuit: C*v' = iL - G*v, L*iL' = -v + lambda
+          // Constraint: v + lambda = E (lambda is control to maintain v near E)
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: 'C=1\nL=1\nG=0.1\nE=5',
+          // state: [v, iL, lambda]
+          init: '5, 0.5, 0',
+          dt: '0.01',
+          steps: '15000',
+          transient: '0',
+          daeIndex: '1',
+          daeNx: '2',
+          daeF: "x1' = (x2 - G*x1)/C\nx2' = (-x1 + x3)/L",
+          daeG: '0 = x1 + x3 - E',
+          daeTol: '1e-8',
+          daeNewtonIters: '12',
+        },
+        'DAE — Circuit with Current Constraint (index-1)': {
+          // Simple circuit: v' = i - v, i' = -v + lambda, constraint: i = I0 + lambda
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: 'I0=1',
+          // state: [v, i, lambda]
+          init: '0, 1, 0',
+          dt: '0.01',
+          steps: '5000',
+          transient: '0',
+          daeIndex: '1',
+          daeNx: '2',
+          daeF: "x1' = x2 - x1\nx2' = -x1 + x3",
+          daeG: '0 = x2 - I0 - x3',
+          daeTol: '1e-8',
+          daeNewtonIters: '12',
+        },
+        'DAE — Chemical Reaction with Control (index-1)': {
+          // A' = -k1*A + k2*B + lambda, B' = k1*A - k2*B - lambda
+          // Constraint: A + B + lambda = C0 (lambda explicitly in constraint)
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: 'k1=1\nk2=0.5\nC0=2',
+          // state: [A, B, lambda]
+          init: '2, 0, 0',
+          dt: '0.01',
+          steps: '5000',
+          transient: '0',
+          daeIndex: '1',
+          daeNx: '2',
+          daeF: "x1' = -k1*x1 + k2*x2 + x3\nx2' = k1*x1 - k2*x2 - x3",
+          daeG: '0 = x1 + x2 + x3 - C0',
+          daeTol: '1e-8',
+          daeNewtonIters: '12',
+        },
+        'DAE — Slider with Friction (index-1)': {
+          // Slider with friction: x'=v, v'=F - mu*lambda, constraint: v + lambda = v0
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: 'F=1\nmu=0.1\nv0=0',
+          // state: [x, v, lambda]
+          init: '0, 0, 0',
+          dt: '0.01',
+          steps: '5000',
+          transient: '0',
+          daeIndex: '1',
+          daeNx: '2',
+          daeF: "x1' = x2\nx2' = F - mu*x3",
+          daeG: '0 = x2 + x3 - v0',
+          daeTol: '1e-8',
+          daeNewtonIters: '12',
+        },
+        'DAE — Constrained Rigid Body on Sphere (index-2)': {
+          // Particle on sphere: x'=v, m*v'=F - lambda*x
+          // Position constraint: g = x1² + x2² + x3² - R² = 0
+          // d²g/dt² = 2*(x1*x4' + x2*x5' + x3*x6') + 2*(x4² + x5² + x6²)
+          //         = 2*(x1*(Fx-lambda*x1)/m + x2*(Fy-lambda*x2)/m + x3*(Fz-lambda*x3)/m) + 2*(x4²+x5²+x6²)
+          //         = 2*(x1*Fx+x2*Fy+x3*Fz)/m - 2*lambda*R²/m + 2*(x4²+x5²+x6²)
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: 'm=1\nR=1\ng=9.8\nFx=0\nFy=0\nFz=-m*g',
+          // state: [x, y, z, vx, vy, vz, lambda]
+          init: '1, 0, 0, 0, 0.5, 0, 0',
+          dt: '0.005',
+          steps: '28000',
+          transient: '0',
+          daeIndex: '2',
+          daeNx: '6',
+          daeF: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = (Fx - x7*x1)/m\nx5' = (Fy - x7*x2)/m\nx6' = (Fz - x7*x3)/m",
+          daeGPos: '0 = x1^2 + x2^2 + x3^2 - R^2',
+          daeG: '0 = 2*(x1*(Fx - x7*x1)/m + x2*(Fy - x7*x2)/m + x3*(Fz - x7*x3)/m) + 2*(x4^2 + x5^2 + x6^2)',
+          daeTol: '1e-8',
+          daeNewtonIters: '20',
+        },
+        'DAE — Spatial Slider–Crank Mechanism (index-2)': {
+          // Slider-crank: crank rotates at (R*cos(ωt), R*sin(ωt)), rod at (x1, x2) constrained by |(x1,x2) - crank| = L
+          // Position constraint: g = (x1 - R*cos(ωt))² + (x2 - R*sin(ωt))² - L² = 0
+          // d²g/dt² involves lambda through rod acceleration
+          // State: [x1, x2, vx1, vx2, lambda] where (x1,x2) is rod position
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: 'L=1\nR=0.5\nomega=1',
+          // state: [x1, x2, vx1, vx2, lambda] = rod position, velocity, lambda
+          // Initial: rod at (R+L, 0) to satisfy constraint when crank is at (R, 0)
+          init: '1.5, 0, 0, 0, 0',
+          dt: '0.01',
+          steps: '25000',
+          transient: '0',
+          daeIndex: '2',
+          daeNx: '4',
+          daeF: "x1' = x3\nx2' = x4\nx3' = -x5*(x1 - R*cos(omega*t))\nx4' = -x5*(x2 - R*sin(omega*t))",
+          daeGPos: '0 = (x1 - R*cos(omega*t))^2 + (x2 - R*sin(omega*t))^2 - L^2',
+          daeG: '0 = 2*(x3 + omega*R*sin(omega*t))^2 + 2*(x4 - omega*R*cos(omega*t))^2 + 2*(x1 - R*cos(omega*t))*(-x5*(x1 - R*cos(omega*t)) + omega^2*R*cos(omega*t)) + 2*(x2 - R*sin(omega*t))*(-x5*(x2 - R*sin(omega*t)) + omega^2*R*sin(omega*t))',
+          daeTol: '1e-8',
+          daeNewtonIters: '20',
+        },
+        'DAE — Nonholonomic Rolling Sphere (index-2)': {
+          // Sphere rolling on plane z=0 without slipping
+          // Nonholonomic constraint: v = R*ω × n, where n = (0,0,1) is normal
+          // vx = R*omega_y, vy = -R*omega_x, vz = 0
+          // Position constraint (implicit): z = R (sphere touches plane)
+          // Velocity constraint: g = [vx - R*omega_y, vy + R*omega_x, vz] = 0
+          // d²g/dt² involves lambda through acceleration
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: 'R=1\nm=1\nI=0.4\ng=9.8',
+          // state: [x, y, z, omega_x, omega_y, omega_z, vx, vy, vz, lambda1, lambda2, lambda3]
+          // For 2D rolling: [x, y, omega_z, vx, vy, lambda1, lambda2]
+          // Actually simpler: [x, y, omega, vx, vy, lambda1, lambda2] where omega is about z-axis
+          // But constraint is vx = R*omega_y, vy = -R*omega_x, so need both omega_x and omega_y
+          // Let's use: [x, y, omega_x, omega_y, vx, vy, lambda1, lambda2]
+          init: '0, 0, 0, 1, 1, 0, 0, 0',
+          dt: '0.01',
+          steps: '10000',
+          transient: '0',
+          daeIndex: '2',
+          daeNx: '6',
+          daeF: "x1' = x5\nx2' = x6\nx3' = R*x8/I\nx4' = -R*x7/I\nx5' = -x7/m\nx6' = -x8/m",
+          daeGPos: '0 = x5 - R*x4\n0 = x6 + R*x3',
+          daeG: '0 = -x7/m - R*(-R*x7/I)\n0 = -x8/m + R*(R*x8/I)',
+          daeTol: '1e-8',
+          daeNewtonIters: '20',
+        },
+        'DAE — Double Pendulum 3D (index-3)': {
+          // Double pendulum: two masses connected by rigid rods
+          // Position constraints: |x1 - x0|² = L1², |x2 - x1|² = L2²
+          // g1 = x1² + y1² + z1² - L1² = 0 (x0 = origin)
+          // g2 = (x2-x1)² + (y2-y1)² + (z2-z1)² - L2² = 0
+          // d²g1/dt² = 2*(vx1²+vy1²+vz1²) + 2*(x1*ax1 + y1*ay1 + z1*az1) involves lambda
+          // Simplified 2D version: [x1, y1, x2, y2, vx1, vy1, vx2, vy2, lambda1, lambda2]
+          category: 'dae',
+          dx: '',
+          dy: '',
+          dz: '',
+          eqs: '',
+          params: 'm1=1\nm2=1\nL1=1\nL2=1\ng=9.8',
+          // state: [x1, y1, x2, y2, vx1, vy1, vx2, vy2, lambda1, lambda2]
+          // Initial: first mass at (L1,0), second at (L1+L2,0) to satisfy constraints
+          init: '1, 0, 2, 0, 0, 0, 0, 0, 0, 0',
+          dt: '0.005',
+          steps: '11000',
+          transient: '0',
+          daeIndex: '3',
+          daeNx: '8',
+          daeF: "x1' = x5\nx2' = x6\nx3' = x7\nx4' = x8\nx5' = -x9*x1/m1\nx6' = -x9*x2/m1 - g\nx7' = -x10*(x3-x1)/m2\nx8' = -x10*(x4-x2)/m2 - g",
+          daeGPos: '0 = x1^2 + x2^2 - L1^2\n0 = (x3-x1)^2 + (x4-x2)^2 - L2^2',
+          daeG: '0 = 2*(x5^2 + x6^2) + 2*x1*(-x9*x1/m1) + 2*x2*(-x9*x2/m1 - g)\n0 = 2*((x7-x5)^2 + (x8-x6)^2) + 2*(x3-x1)*(-x10*(x3-x1)/m2 - (-x9*x1/m1)) + 2*(x4-x2)*(-x10*(x4-x2)/m2 - g - (-x9*x2/m1 - g))',
+          daeTol: '1e-8',
+          daeNewtonIters: '25',
         },
         'Hybrid — Integrate-and-Fire Neuron (v, spike)': {
           category: 'hybrid',
@@ -2572,6 +3028,175 @@
           steps: '120000',
           transient: '0',
         },
+        'Hybrid — Bouncing Ball 3D (Impact)': {
+          // Free fall + elastic collision
+          // x' = vx, y' = vy, z' = vz, vz' = -g
+          // Reset: if z = 0 and vz < 0: vz := -c * vz
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '6',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = 0\nx5' = 0\nx6' = -g",
+          hybridEvent: 'x3 <= 0 && x6 < 0',
+          hybridReset: 'x3 = 0\nx6 = -c * x6',
+          params: 'g=9.8\nc=0.8',
+          init: '0, 0, 2, 1, 0.5, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Hybrid — Pendulum + Switching Controller (3D)': {
+          // θ'' = -(g/L)sinθ + u (switching control)
+          // Switch: if |θ| >= θ₀ → apply control u, else → no control
+          // 3D: x = sinθ, y = cosθ, z = θ'
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4*cos(x2)\nx2' = -x4*sin(x2)\nx3' = -(g/L)*sin(x2) + u_control\nx4' = 0",
+          hybridEvent: 'abs(x2) >= theta0 && x4 == 0 || abs(x2) < theta0 && x4 == 1',
+          hybridReset: 'x4 = (abs(x2) >= theta0) ? 1 : 0',
+          params: 'g=9.8\nL=1\nu_control=2\ntheta0=0.5',
+          init: '0, 1.2, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Hybrid — Robot Navigation with Collision': {
+          // x' = v cosθ, y' = v sinθ, θ' = ω
+          // Reset: if collision: θ := θ + π/2
+          // 3D: z = time or speed
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '4',
+          eqs: "x1' = v*cos(x3)\nx2' = v*sin(x3)\nx3' = omega\nx4' = 1",
+          hybridEvent: 'x1 <= -2 || x1 >= 2 || x2 <= -2 || x2 >= 2',
+          hybridReset: 'x3 = x3 + pi/2',
+          params: 'v=1\nomega=0.1',
+          init: '0, 0, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Hybrid — Piecewise Linear Chaotic Attractor': {
+          // Switch between linear modes based on x1
+          // Mode encoded in x4: 0 = mode 1, 1 = mode 2
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = (x4 == 0) ? (a1*x1 + a2*x2 + a3*x3) : (b1*x1 + b2*x2 + b3*x3)\nx2' = (x4 == 0) ? (a4*x1 + a5*x2 + a6*x3) : (b4*x1 + b5*x2 + b6*x3)\nx3' = (x4 == 0) ? (a7*x1 + a8*x2 + a9*x3) : (b7*x1 + b8*x2 + b9*x3)\nx4' = 0",
+          hybridEvent: 'x1 > c && x4 == 0 || x1 <= c && x4 == 1',
+          hybridReset: 'x4 = (x1 > c) ? 1 : 0',
+          params: 'a1=0.5\na2=-0.3\na3=0.2\na4=0.1\na5=0.4\na6=-0.1\na7=-0.2\na8=0.1\na9=0.3\nb1=-0.3\nb2=0.2\nb3=0.1\nb4=0.2\nb5=-0.4\nb6=0.3\nb7=0.1\nb8=-0.2\nb9=-0.3\nc=0',
+          init: '0.1, 0.1, 0.1, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Hybrid — Hopf Oscillator with Reset': {
+          // r' = μr(1−r²), θ' = ω
+          // Reset: if θ >= 2π → θ := θ - 2π
+          // 3D: x = r cosθ, y = r sinθ, z = θ
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "r = sqrt(x1*x1 + x2*x2)\ntheta = atan2(x2, x1)\nx1' = mu*r*(1 - r*r)*cos(theta) - omega*r*sin(theta)\nx2' = mu*r*(1 - r*r)*sin(theta) + omega*r*cos(theta)\nx3' = omega",
+          hybridEvent: 'x3 >= 2*pi',
+          hybridReset: 'x3 = x3 - 2*pi',
+          params: 'mu=1\nomega=1',
+          init: '0.5, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Hybrid — Predator–Prey with Harvest Events': {
+          // x' = ax − bxy, y' = −cy + dxy
+          // Reset: if x > Xmax: x := αx
+          // 3D: z = time
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = a*x1 - b*x1*x2\nx2' = -c*x2 + d*x1*x2\nx3' = 1",
+          hybridEvent: 'x1 > Xmax',
+          hybridReset: 'x1 = alpha*x1',
+          params: 'a=1\nb=0.1\nc=0.5\nd=0.02\nXmax=10\nalpha=0.5',
+          init: '5, 3, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Hybrid — Chua Circuit (Nonlinear switching)': {
+          // Switch: if |x| < 1 → mode 1, else → mode 2
+          // x' = α(y − x − m(x)), y' = x − y + z, z' = −βy
+          // Mode encoded in x4: 0 = |x| < 1, 1 = |x| >= 1
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "m = (x4 == 0) ? (m1*x1) : (m0*x1 + 0.5*(m0-m1)*(abs(x1+1) - abs(x1-1)))\nx1' = alpha*(x2 - x1 - m)\nx2' = x1 - x2 + x3\nx3' = -beta*x2\nx4' = 0",
+          hybridEvent: 'abs(x1) >= 1 && x4 == 0 || abs(x1) < 1 && x4 == 1',
+          hybridReset: 'x4 = (abs(x1) < 1) ? 0 : 1',
+          params: 'alpha=15.6\nbeta=28\nm0=-1.143\nm1=-0.714',
+          init: '0.1, 0, 0, 0',
+          dt: '0.004',
+          steps: '260000',
+          transient: '0',
+        },
+        'Hybrid — Rigid Body with Contact Events': {
+          // ω' = I⁻¹(τ − ω×Iω)
+          // Reset when collision: ω := R ω or reduce energy
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = (tau_x - (x2*I3*x3 - x3*I2*x2))/I1\nx2' = (tau_y - (x3*I1*x1 - x1*I3*x3))/I2\nx3' = (tau_z - (x1*I2*x2 - x2*I1*x1))/I3",
+          hybridEvent: 'x1*x1 + x2*x2 + x3*x3 > E_max',
+          hybridReset: 'x1 = c_reduce*x1\nx2 = c_reduce*x2\nx3 = c_reduce*x3',
+          params: 'I1=1\nI2=0.8\nI3=0.6\ntau_x=0.1\ntau_y=0.05\ntau_z=0.08\nE_max=5\nc_reduce=0.9',
+          init: '0.5, 0.3, 0.2',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Hybrid — Gradient Flow + Switching Potential': {
+          // x' = −∇Uᵩ(x)
+          // Switch potential when x reaches boundary: ϕ cycles 1→2→3→1
+          // ϕ encoded in x4: 1, 2, or 3
+          category: 'hybrid',
+          systemType: 'hybrid',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = (x4 == 1) ? -2*(x1*x1 + x2*x2 + x3*x3 - 1)*x1 : ((x4 == 2) ? -2*(x1-1) : -2*x1)\nx2' = (x4 == 1) ? -2*(x1*x1 + x2*x2 + x3*x3 - 1)*x2 : ((x4 == 2) ? -2*x2 : -2*(x2-1))\nx3' = (x4 == 1) ? -2*(x1*x1 + x2*x2 + x3*x3 - 1)*x3 : ((x4 == 2) ? -2*x3 : -2*x3)\nx4' = 0",
+          hybridEvent: 'x1*x1 + x2*x2 + x3*x3 > 2.5',
+          hybridReset: 'x4 = (x4 >= 3) ? 1 : (x4 + 1)',
+          params: '',
+          init: '0.5, 0.5, 0.5, 1',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
         'Hamilton — simple pendulum (q,p)': {
           category: 'hamilton',
           systemType: 'ode',
@@ -2586,6 +3211,163 @@
           dt: '0.01',
           steps: '220000',
           transient: '2000',
+        },
+        'Lagrange — Constrained Particle on Sphere (Geodesic on S²)': {
+          // L = ½m(ẋ²+ẏ²+ż²) - mgz, constraint: x²+y²+z² = R²
+          // Using spherical coordinates: x = R sinθ cosφ, y = R sinθ sinφ, z = R cosθ
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x3\nx2' = x4\nx3' = sin(x1)*cos(x1)*x4*x4 - (g/R)*sin(x1)\nx4' = -2*cos(x1)/sin(x1)*x3*x4",
+          params: 'g=9.8\nR=1',
+          init: 'pi/3, 0, 0, 1',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — Double Spherical Pendulum (3D)': {
+          // Two pendulums in 3D, L = T - V
+          // Simplified: two coupled spherical coordinates
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '6',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = sin(x1)*cos(x1)*x5*x5 - (g/L1)*sin(x1) - (m2/m1)*sin(x1-x2)\nx5' = sin(x2)*cos(x2)*x6*x6 - (g/L2)*sin(x2) - (m1/m2)*sin(x2-x1)\nx6' = -2*cos(x2)/sin(x2)*x5*x6",
+          params: 'g=9.8\nL1=1\nL2=1\nm1=1\nm2=1',
+          init: 'pi/3, pi/4, 0, 0, 0, 0.5',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — Rigid Body Free Rotation (SO(3))': {
+          // L = ½ωᵀIω, Euler equations
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = (I2 - I3)/I1 * x2 * x3\nx2' = (I3 - I1)/I2 * x3 * x1\nx3' = (I1 - I2)/I3 * x1 * x2",
+          params: 'I1=2\nI2=1.5\nI3=1',
+          init: '0.5, 0.3, 0.2',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — Lagrange Top (Spinning Top)': {
+          // L = ½(I₁(θ̇²+φ̇²sin²θ) + I₃(ψ̇+φ̇cosθ)²) - Mgl cosθ
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '6',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = sin(x1)*cos(x1)*x5*x5 + (I3/I1)*sin(x1)*x5*x6 - (M*g*l/I1)*sin(x1)\nx5' = -2*cos(x1)/sin(x1)*x4*x5 - (I3/I1)*cos(x1)/sin(x1)*x4*x6\nx6' = (I1 - I3)/I3 * sin(x1)*x4*x5",
+          params: 'I1=1\nI3=0.5\nM=1\ng=9.8\nl=0.5',
+          init: 'pi/4, 0, 0, 0, 2, 5',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — Sphere Rolling Without Slipping': {
+          // T = ½mv² + ½ωᵀIω, constraint: v = R(ω × n)
+          // Simplified: rolling on plane z=0, using constraint to reduce dimensions
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '5',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x3\nx2' = x4\nx3' = R*x5*x4\nx4' = -R*x5*x3\nx5' = 0",
+          params: 'R=1',
+          init: '0, 0, 1, 0, 1',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — 3D Spring–Mass Network': {
+          // L = Σ ½mᵢṙᵢ² - Σ ½kᵢⱼ(|rᵢ-rⱼ|-lᵢⱼ)²
+          // Simplified: single mass with spring to origin
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '6',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = -k/m*x1\nx5' = -k/m*x2\nx6' = -k/m*x3",
+          params: 'k=1\nm=1',
+          init: '1, 0, 0, 0, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — Kepler Problem (3D)': {
+          // L = ½mṙ² + GMm/|r|
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '6',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = -GM*x1/(x1*x1 + x2*x2 + x3*x3)^(3/2)\nx5' = -GM*x2/(x1*x1 + x2*x2 + x3*x3)^(3/2)\nx6' = -GM*x3/(x1*x1 + x2*x2 + x3*x3)^(3/2)",
+          params: 'GM=1',
+          init: '1, 0, 0, 0, 0.8, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — Magnetic Lorentz Dynamics': {
+          // L = ½mṙ² + qṙ·A(r)
+          // A = (0, 0, Bx) for uniform B field
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '6',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = q*B/m * x5\nx5' = -q*B/m * x4\nx6' = 0",
+          params: 'q=1\nB=1\nm=1',
+          init: '0, 0, 0, 1, 0, 0.5',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — Geodesics on Torus (3D)': {
+          // L = ½gᵢⱼq̇ⁱq̇ʲ on torus surface
+          // Torus: (R + r cos u) cos v, (R + r cos u) sin v, r sin u
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x3\nx2' = x4\nx3' = sin(x1)*cos(x1)*x4*x4/(R + r*cos(x1))\nx4' = -2*r*sin(x1)/(R + r*cos(x1)) * x3*x4",
+          params: 'R=2\nr=0.5',
+          init: '0, 0, 0.5, 1',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Lagrange — Nonlinear Elastic Rod (Cosserat)': {
+          // L = T - V, with bending + twisting energy
+          // Simplified: 3D rod with curvature
+          category: 'hamilton',
+          systemType: 'ode',
+          dim: '6',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = -k_bend/m * x1 - k_twist/m * (x1 - x2)\nx5' = -k_bend/m * x2 - k_twist/m * (x2 - x1)\nx6' = -k_bend/m * x3",
+          params: 'k_bend=1\nk_twist=0.5\nm=1',
+          init: '0.1, 0, 0, 0, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
         },
         'Gradient flow — Rosenbrock (2D)': {
           category: 'optimization',
@@ -2602,6 +3384,162 @@
           steps: '200000',
           transient: '0',
         },
+        'Gradient Flow — Parabolic Well 3D': {
+          // V(x,y,z) = ½(x²+y²+z²)
+          // ẋ = -x, ẏ = -y, ż = -z
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = -x1\nx2' = -x2\nx3' = -x3",
+          params: '',
+          init: '1, 1, 1',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — Double Well Potential 3D': {
+          // V(x,y,z) = ¼(x²+y²+z²-1)²
+          // ẋ = -(x²+y²+z²-1)x
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = -(x1*x1 + x2*x2 + x3*x3 - 1)*x1\nx2' = -(x1*x1 + x2*x2 + x3*x3 - 1)*x2\nx3' = -(x1*x1 + x2*x2 + x3*x3 - 1)*x3",
+          params: '',
+          init: '0.5, 0.5, 0.5',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — Mexican Hat / Higgs Potential 3D': {
+          // V = ¼(r²-1)² + az², r² = x²+y²
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "r2 = x1*x1 + x2*x2\nx1' = -(r2 - 1)*x1\nx2' = -(r2 - 1)*x2\nx3' = -2*a*x3",
+          params: 'a=0.5',
+          init: '0.8, 0, 0.5',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — Rosenbrock 3D': {
+          // V(x,y,z) = (1-x)² + 100(y-x²)² + 100(z-y²)²
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = 2*(1-x1) + 400*x1*(x2 - x1*x1) + 40000*x1*(x2*x2 - x3)\nx2' = -200*(x2 - x1*x1) + 400*x2*(x2*x2 - x3)\nx3' = -200*(x3 - x2*x2)",
+          params: '',
+          init: '-1.2, 1.0, 1.0',
+          dt: '0.001',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — 3D Quadratic + Saddle Mix': {
+          // V = x²+y²-z²
+          // ẋ = -2x, ẏ = -2y, ż = 2z
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = -2*x1\nx2' = -2*x2\nx3' = 2*x3",
+          params: '',
+          init: '0.5, 0.5, 0.5',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — Torus Surface (Geodesic damping)': {
+          // V(θ,φ) = cosθ + cosφ on torus
+          // Torus: (R + r cos u) cos v, (R + r cos u) sin v, r sin u
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x3\nx2' = x4\nx3' = sin(x1)/(R + r*cos(x1))\nx4' = sin(x2)/(R + r*cos(x1))",
+          params: 'R=2\nr=0.5',
+          init: '0, 0, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — Morse Potential 3D': {
+          // V = e^(-2r) - 2e^(-r), r = sqrt(x²+y²+z²)
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "r = sqrt(x1*x1 + x2*x2 + x3*x3)\nx1' = -x1/r * (2*exp(-2*r) - 2*exp(-r))\nx2' = -x2/r * (2*exp(-2*r) - 2*exp(-r))\nx3' = -x3/r * (2*exp(-2*r) - 2*exp(-r))",
+          params: '',
+          init: '1, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — Neural Network Loss Surface 3D': {
+          // V(x,y,z) = log(1 + e^(x+y+z))
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = -exp(x1+x2+x3)/(1 + exp(x1+x2+x3))\nx2' = -exp(x1+x2+x3)/(1 + exp(x1+x2+x3))\nx3' = -exp(x1+x2+x3)/(1 + exp(x1+x2+x3))",
+          params: '',
+          init: '1, 1, 1',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — Gaussian Mixture 3D': {
+          // V = -ln(Σᵢ wᵢ e^(-|x-μᵢ|²))
+          // Simplified: 2 Gaussians
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "d1 = (x1-mu1x)^2 + (x2-mu1y)^2 + (x3-mu1z)^2\nd2 = (x1-mu2x)^2 + (x2-mu2y)^2 + (x3-mu2z)^2\nsum = w1*exp(-d1) + w2*exp(-d2)\nx1' = -2*(w1*exp(-d1)*(x1-mu1x) + w2*exp(-d2)*(x1-mu2x))/sum\nx2' = -2*(w1*exp(-d1)*(x2-mu1y) + w2*exp(-d2)*(x2-mu2y))/sum\nx3' = -2*(w1*exp(-d1)*(x3-mu1z) + w2*exp(-d2)*(x3-mu2z))/sum",
+          params: 'w1=0.5\nw2=0.5\nmu1x=1\nmu1y=0\nmu1z=0\nmu2x=-1\nmu2y=0\nmu2z=0',
+          init: '0, 0, 0',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
+        'Gradient Flow — Allen-Cahn (Discretized 3D)': {
+          // u̇ = Δu - f(u), f(u) = u - u³
+          // Simplified: 3D field reduced to single point
+          category: 'optimization',
+          systemType: 'ode',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = -alpha*(x1 - x2) - (x1 - x1*x1*x1)\nx2' = -alpha*(2*x2 - x1 - x3) - (x2 - x2*x2*x2)\nx3' = -alpha*(x3 - x2) - (x3 - x3*x3*x3)",
+          params: 'alpha=0.1',
+          init: '0.5, -0.5, 0.5',
+          dt: '0.01',
+          steps: '200000',
+          transient: '0',
+        },
         'Markov — 3-state distribution (map)': {
           category: 'markov',
           systemType: 'map',
@@ -2615,6 +3553,177 @@
           init: '1, 0, 0',
           dt: '1',
           steps: '120000',
+          transient: '0',
+        },
+        'Markov — Brownian Motion 3D (Wiener Process)': {
+          // dX_t^(i) = σ dW_t^(i), independent components
+          category: 'markov',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '0',
+          dy: '0',
+          dz: '0',
+          params: '',
+          init: '0, 0, 0',
+          dt: '0.01',
+          sigma: '0.5',
+          steps: '200000',
+          transient: '0',
+        },
+        'Markov — Ornstein–Uhlenbeck 3D (mean-reverting)': {
+          // dX_t = -γ X_t dt + σ dW_t
+          category: 'markov',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '-gamma*x',
+          dy: '-gamma*y',
+          dz: '-gamma*z',
+          params: 'gamma=0.5',
+          init: '1, 1, 1',
+          dt: '0.01',
+          sigma: '0.4',
+          steps: '200000',
+          transient: '0',
+        },
+        'Markov — 3D Random Walk on Lattice': {
+          // X_{n+1} = X_n + ξ_n, where ξ_n is ±1 on each axis
+          // Simplified: deterministic symmetric walk
+          category: 'markov',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1 = x1 + 0.1*(x1 - x2)\nx2 = x2 + 0.1*(x2 - x3)\nx3 = x3 + 0.1*(x3 - x1)",
+          params: '',
+          init: '0, 0, 0',
+          dt: '1',
+          steps: '200000',
+          transient: '0',
+        },
+        'Markov — Jump Process on Graph 3D': {
+          // State transitions via transition matrix P
+          // Simplified: 3-state system with transitions
+          category: 'markov',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1 = 0.7*x1 + 0.2*x2 + 0.1*x3\nx2 = 0.15*x1 + 0.6*x2 + 0.25*x3\nx3 = 0.15*x1 + 0.2*x2 + 0.65*x3",
+          params: '',
+          init: '1, 0, 0',
+          dt: '1',
+          steps: '120000',
+          transient: '0',
+        },
+        'Markov — Diffusion on Sphere (Spherical Brownian)': {
+          // dX_t = P_{X_t} ∘ dW_t, constrained to S²
+          category: 'markov',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '-(x*x + y*y + z*z - 1)*x',
+          dy: '-(x*x + y*y + z*z - 1)*y',
+          dz: '-(x*x + y*y + z*z - 1)*z',
+          params: '',
+          init: '1, 0, 0',
+          dt: '0.01',
+          sigma: '0.2',
+          steps: '200000',
+          transient: '0',
+        },
+        'Markov — Langevin Dynamics 3D (underdamped)': {
+          // dX_t = V_t dt, dV_t = -γ V_t dt + σ dW_t
+          category: 'markov',
+          systemType: 'sde',
+          dim: '6',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1' = x4\nx2' = x5\nx3' = x6\nx4' = -gamma*x4\nx5' = -gamma*x5\nx6' = -gamma*x6",
+          dx: 'x4',
+          dy: 'x5',
+          dz: 'x6',
+          params: 'gamma=0.5',
+          init: '0, 0, 0, 1, 0, 0',
+          dt: '0.01',
+          sigma: '0.3',
+          steps: '200000',
+          transient: '0',
+        },
+        'Markov — Metropolis–Hastings Chain 3D': {
+          // x' = x + ε, accept with α = min(1, π(x')/π(x))
+          // Simplified: random walk with small steps
+          category: 'markov',
+          systemType: 'map',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1 = x1 + epsilon*(x2 - x1)\nx2 = x2 + epsilon*(x3 - x2)\nx3 = x3 + epsilon*(x1 - x3)",
+          params: 'epsilon=0.1',
+          init: '0, 0, 0',
+          dt: '1',
+          steps: '200000',
+          transient: '0',
+        },
+        'Markov — Hidden Markov Model 3D': {
+          // Hidden state Z_t, observed position X_t ~ N(μ_{Z_t}, Σ)
+          // Simplified: 3-state HMM with 3D observations
+          category: 'markov',
+          systemType: 'map',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1 = 0.7*x1 + 0.2*mu1x + 0.1*mu2x\nx2 = 0.7*x2 + 0.2*mu1y + 0.1*mu2y\nx3 = 0.7*x3 + 0.2*mu1z + 0.1*mu2z\nx4 = x4 + 0.01",
+          params: 'mu1x=1\nmu1y=0\nmu1z=0\nmu2x=0\nmu2y=1\nmu2z=0',
+          init: '0, 0, 0, 0',
+          dt: '1',
+          steps: '200000',
+          transient: '0',
+        },
+        'Markov — Continuous-time Jump in 3D Regions': {
+          // Each region is a state, exponential waiting times
+          // Simplified: discrete approximation with periodic jumps
+          category: 'markov',
+          systemType: 'map',
+          dim: '4',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          eqs: "x1 = x1 + (x4 > lambda) ? 0.1*(x2 - x1) : 0\nx2 = x2 + (x4 > lambda) ? 0.1*(x3 - x2) : 0\nx3 = x3 + (x4 > lambda) ? 0.1*(x1 - x3) : 0\nx4 = (x4 > lambda) ? 0 : (x4 + dt)",
+          params: 'lambda=5',
+          init: '0, 0, 0, 0',
+          dt: '0.1',
+          steps: '200000',
+          transient: '0',
+        },
+        'Markov — Stochastic Gradient Flow 3D': {
+          // dX_t = -∇V(X_t) dt + σ dW_t
+          category: 'markov',
+          systemType: 'sde',
+          dim: '3',
+          projX: '1',
+          projY: '2',
+          projZ: '3',
+          dx: '-(x*x + y*y + z*z - 1)*x',
+          dy: '-(x*x + y*y + z*z - 1)*y',
+          dz: '-(x*x + y*y + z*z - 1)*z',
+          params: '',
+          init: '0.5, 0.5, 0.5',
+          dt: '0.01',
+          sigma: '0.25',
+          steps: '200000',
           transient: '0',
         },
         'Custom': {
@@ -2754,8 +3863,10 @@
             pdeSource: String(item.pdeSource ?? ''),
             pdeNonlinear: String(item.pdeNonlinear ?? ''),
             // DAE
+            daeIndex: String(item.daeIndex ?? '1'),
             daeNx: String(item.daeNx ?? ''),
             daeF: String(item.daeF ?? ''),
+            daeGPos: String(item.daeGPos ?? ''),
             daeG: String(item.daeG ?? ''),
             daeTol: String(item.daeTol ?? ''),
             daeNewtonIters: String(item.daeNewtonIters ?? ''),
@@ -2895,11 +4006,14 @@
         if (p.pdeSource != null && ui.pdeSource) ui.pdeSource.value = String(p.pdeSource);
         if (p.pdeNonlinear != null && ui.pdeNonlinear) ui.pdeNonlinear.value = String(p.pdeNonlinear);
         // DAE
+        if (p.daeIndex != null && ui.daeIndex) ui.daeIndex.value = String(p.daeIndex ?? '1');
         if (p.daeNx != null && ui.daeNx) ui.daeNx.value = String(p.daeNx);
         if (p.daeF != null && ui.daeF) ui.daeF.value = String(p.daeF);
+        if (p.daeGPos != null && ui.daeGPos) ui.daeGPos.value = String(p.daeGPos ?? '');
         if (p.daeG != null && ui.daeG) ui.daeG.value = String(p.daeG);
         if (p.daeTol != null && ui.daeTol) ui.daeTol.value = String(p.daeTol);
         if (p.daeNewtonIters != null && ui.daeNewtonIters) ui.daeNewtonIters.value = String(p.daeNewtonIters);
+        if (ui.daeIndex) { updateDaeIndexHint(); updateDaeGLabel(); }
         // Hybrid
         if (p.hybridEvent != null && ui.hybridEvent) ui.hybridEvent.value = String(p.hybridEvent);
         if (p.hybridReset != null && ui.hybridReset) ui.hybridReset.value = String(p.hybridReset);
@@ -2969,8 +4083,10 @@
           pdeSource: ui.pdeSource?.value ?? '',
           pdeNonlinear: ui.pdeNonlinear?.value ?? '',
           // DAE
+          daeIndex: ui.daeIndex?.value ?? '1',
           daeNx: ui.daeNx?.value ?? '',
           daeF: ui.daeF?.value ?? '',
+          daeGPos: ui.daeGPos?.value ?? '',
           daeG: ui.daeG?.value ?? '',
           daeTol: ui.daeTol?.value ?? '',
           daeNewtonIters: ui.daeNewtonIters?.value ?? '',
@@ -3093,6 +4209,87 @@
         // Remember last algebraic preset per mode
         if (String(ui.systemType?.value || '') === 'algebraic') rememberAlgPreset(ui.preset.value);
       });
+
+      function updateDaeIndexHint() {
+        if (!ui.daeIndexHint) return;
+        const lang = getCurrentLang();
+        const idx = parseInt(ui.daeIndex?.value ?? '1', 10) || 1;
+        const hints = {
+          vi: {
+            1: 'Index-1: g phụ thuộc vào biến đại số y (g(x,y,t) = 0)',
+            2: 'Index-2: g chỉ phụ thuộc x (g(x) = 0), cần vi phân 1 lần',
+            3: 'Index-3: g chỉ phụ thuộc x (g(x) = 0), cần vi phân 2 lần',
+          },
+          en: {
+            1: 'Index-1: g depends on algebraic variables y (g(x,y,t) = 0)',
+            2: 'Index-2: g depends only on x (g(x) = 0), needs 1 differentiation',
+            3: 'Index-3: g depends only on x (g(x) = 0), needs 2 differentiations',
+          },
+        };
+        ui.daeIndexHint.textContent = hints[lang]?.[idx] || hints.en[1];
+      }
+
+      function updateDaeGLabel() {
+        if (!ui.daeGLabel) return;
+        const lang = getCurrentLang();
+        const idx = parseInt(ui.daeIndex?.value ?? '1', 10) || 1;
+        
+        // Show/hide position constraint field for index-2/3
+        if (ui.daeGPosRow) {
+          ui.daeGPosRow.style.display = (idx >= 2) ? '' : 'none';
+        }
+        
+        if (idx === 1) {
+          if (ui.daeGLabel) {
+            ui.daeGLabel.textContent = (lang === 'vi') 
+              ? 'Ràng buộc đại số (Ny dòng): 0 = g(x,y,t)'
+              : 'DAE algebraic constraints (Ny lines): 0 = g(x,y,t)';
+          }
+          if (ui.daeGHint) {
+            ui.daeGHint.textContent = (lang === 'vi')
+              ? 'g phụ thuộc vào biến đại số y'
+              : 'g depends on algebraic variables y';
+          }
+        } else if (idx === 2) {
+          if (ui.daeGLabel) {
+            ui.daeGLabel.textContent = (lang === 'vi')
+              ? 'Ràng buộc vận tốc dg/dt (Ny dòng): 0 = dg/dt'
+              : 'Velocity constraint dg/dt (Ny lines): 0 = dg/dt';
+          }
+          if (ui.daeGHint) {
+            ui.daeGHint.textContent = (lang === 'vi')
+              ? 'QUAN TRỌNG: Nhập d²g/dt² (vi phân 2 lần) để có dạng index-1. Ví dụ: g=x1²+x2²-R² → d²g/dt²=2*(x1*x4\'+x2*x5\')+2*(x4²+x5²) với x\'=f(x,lambda)'
+              : 'IMPORTANT: Enter d²g/dt² (twice-differentiated) for index-1 form. Example: g=x1²+x2²-R² → d²g/dt²=2*(x1*x4\'+x2*x5\')+2*(x4²+x5²) where x\'=f(x,lambda)';
+          }
+          if (ui.daeGPosLabel) {
+            ui.daeGPosLabel.textContent = (lang === 'vi')
+              ? 'Ràng buộc vị trí g(x) = 0 (Ny dòng, tùy chọn)'
+              : 'Position constraint g(x) = 0 (Ny lines, optional)';
+          }
+        } else {
+          if (ui.daeGLabel) {
+            ui.daeGLabel.textContent = (lang === 'vi')
+              ? 'Ràng buộc đã vi phân 2 lần d²g/dt² (Ny dòng): 0 = d²g/dt²'
+              : 'Twice-differentiated constraint d²g/dt² (Ny lines): 0 = d²g/dt²';
+          }
+          if (ui.daeGHint) {
+            ui.daeGHint.textContent = (lang === 'vi')
+              ? 'QUAN TRỌNG: Nhập d²g/dt² (vi phân 2 lần) để có dạng index-1. Thay x\'\' và x\' bằng f(x,lambda) và f(x,y,t)'
+              : 'IMPORTANT: Enter d²g/dt² (twice-differentiated) for index-1 form. Replace x\'\' and x\' with f(x,lambda) and f(x,y,t)';
+          }
+          if (ui.daeGPosLabel) {
+            ui.daeGPosLabel.textContent = (lang === 'vi')
+              ? 'Ràng buộc vị trí g(x) = 0 (Ny dòng, tùy chọn)'
+              : 'Position constraint g(x) = 0 (Ny lines, optional)';
+          }
+        }
+      }
+
+      ui.daeIndex?.addEventListener('change', () => {
+        updateDaeIndexHint();
+        updateDaeGLabel();
+      });
+
       ui.presetSearch?.addEventListener('input', () => {
         populatePresetDropdown(ui.preset.value);
         updatePresetButtons();
@@ -3358,7 +4555,392 @@
         return { nx, ny, dim, f, g, tol, maxIters };
       }
 
+      // ---- Multi-instance system ----
+      // Instance structure: { id, name, color, visible, runtime, geometry, line, points, material }
+      const instances = [];
+      let activeInstanceId = null;
+      let nextInstanceId = 1;
+
+      function createInstanceGeometry(id, color) {
+        const geometry = new THREE.BufferGeometry();
+        const material = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.95 });
+        const pointsMaterial = new THREE.PointsMaterial({ color: color, size: 0.01, sizeAttenuation: true });
+        const line = new THREE.Line(geometry, material);
+        const points = new THREE.Points(geometry, pointsMaterial);
+        line.visible = true;
+        points.visible = false;
+        scene.add(line);
+        scene.add(points);
+        return { geometry, line, points, material, pointsMaterial };
+      }
+
+      function removeInstanceGeometry(inst) {
+        if (inst.line) scene.remove(inst.line);
+        if (inst.points) scene.remove(inst.points);
+        if (inst.geometry) inst.geometry.dispose();
+        if (inst.material) inst.material.dispose();
+        if (inst.pointsMaterial) inst.pointsMaterial.dispose();
+      }
+
+      function getInstanceSettingsFromUI() {
+        // Get all Model and Run settings from UI
+        return {
+          systemType: ui.systemType?.value ?? 'ode_nonlinear',
+          preset: ui.preset?.value ?? '',
+          dim: ui.dim?.value ?? '3',
+          dimAuto: ui.dimAuto?.checked ?? true,
+          projX: ui.projX?.value ?? '1',
+          projY: ui.projY?.value ?? '2',
+          projZ: ui.projZ?.value ?? '3',
+          eqMode: ui.eqMode?.value ?? 'simple',
+          eqs: ui.eqs?.value ?? '',
+          dx: ui.dx?.value ?? '',
+          dy: ui.dy?.value ?? '',
+          dz: ui.dz?.value ?? '',
+          params: ui.params?.value ?? '',
+          init: ui.init?.value ?? '',
+          dt: ui.dt?.value ?? '0.005',
+          steps: ui.steps?.value ?? '200000',
+          solver: ui.solver?.value ?? 'rk4',
+          sigma: ui.sigma?.value ?? '0',
+          absTol: ui.absTol?.value ?? '1e-6',
+          relTol: ui.relTol?.value ?? '1e-3',
+          dtMin: ui.dtMin?.value ?? '1e-6',
+          dtMax: ui.dtMax?.value ?? '0.05',
+          transient: ui.transient?.value ?? '2000',
+          ppf: ui.ppf?.value ?? '1500',
+          // PDE
+          pdeType: ui.pdeType?.value ?? 'heat2d',
+          pdeNx: ui.pdeNx?.value ?? '90',
+          pdeNy: ui.pdeNy?.value ?? '90',
+          pdeXMin: ui.pdeXMin?.value ?? '-1',
+          pdeXMax: ui.pdeXMax?.value ?? '1',
+          pdeYMin: ui.pdeYMin?.value ?? '-1',
+          pdeYMax: ui.pdeYMax?.value ?? '1',
+          pdeAlpha: ui.pdeAlpha?.value ?? '0.25',
+          pdeBC: ui.pdeBC?.value ?? 'dirichlet0',
+          pdeZScale: ui.pdeZScale?.value ?? '1.0',
+          pdeU0: ui.pdeU0?.value ?? '',
+          pdeSource: ui.pdeSource?.value ?? '',
+          pdeNonlinear: ui.pdeNonlinear?.value ?? '',
+          // DAE
+          daeIndex: ui.daeIndex?.value ?? '1',
+          daeNx: ui.daeNx?.value ?? '1',
+          daeF: ui.daeF?.value ?? '',
+          daeGPos: ui.daeGPos?.value ?? '',
+          daeG: ui.daeG?.value ?? '',
+          daeTol: ui.daeTol?.value ?? '1e-8',
+          daeNewtonIters: ui.daeNewtonIters?.value ?? '12',
+          // Hybrid
+          hybridEvent: ui.hybridEvent?.value ?? '',
+          hybridReset: ui.hybridReset?.value ?? '',
+          // Algebraic
+          algMode: ui.algMode?.value ?? 'parametric',
+          algF: ui.algF?.value ?? '',
+          algIso: ui.algIso?.value ?? '0',
+          algRes: ui.algRes?.value ?? '40',
+          algXMin: ui.algXMin?.value ?? '-1.5',
+          algXMax: ui.algXMax?.value ?? '1.5',
+          algYMin: ui.algYMin?.value ?? '-1.5',
+          algYMax: ui.algYMax?.value ?? '1.5',
+          algZMin: ui.algZMin?.value ?? '-1.5',
+          algZMax: ui.algZMax?.value ?? '1.5',
+        };
+      }
+
+      function loadInstanceSettingsToUI(settings) {
+        if (!settings) return;
+        if (settings.systemType != null && ui.systemType) ui.systemType.value = String(settings.systemType);
+        if (settings.preset != null && ui.preset) ui.preset.value = String(settings.preset);
+        if (settings.dim != null && ui.dim) ui.dim.value = String(settings.dim);
+        if (settings.dimAuto != null && ui.dimAuto) ui.dimAuto.checked = !!settings.dimAuto;
+        if (settings.projX != null && ui.projX) ui.projX.value = String(settings.projX);
+        if (settings.projY != null && ui.projY) ui.projY.value = String(settings.projY);
+        if (settings.projZ != null && ui.projZ) ui.projZ.value = String(settings.projZ);
+        if (settings.eqMode != null && ui.eqMode) ui.eqMode.value = String(settings.eqMode);
+        if (settings.eqs != null && ui.eqs) ui.eqs.value = String(settings.eqs);
+        if (settings.dx != null && ui.dx) ui.dx.value = String(settings.dx);
+        if (settings.dy != null && ui.dy) ui.dy.value = String(settings.dy);
+        if (settings.dz != null && ui.dz) ui.dz.value = String(settings.dz);
+        if (settings.params != null && ui.params) ui.params.value = String(settings.params);
+        if (settings.init != null && ui.init) ui.init.value = String(settings.init);
+        if (settings.dt != null && ui.dt) ui.dt.value = String(settings.dt);
+        if (settings.steps != null && ui.steps) ui.steps.value = String(settings.steps);
+        if (settings.solver != null && ui.solver) ui.solver.value = String(settings.solver);
+        if (settings.sigma != null && ui.sigma) ui.sigma.value = String(settings.sigma);
+        if (settings.absTol != null && ui.absTol) ui.absTol.value = String(settings.absTol);
+        if (settings.relTol != null && ui.relTol) ui.relTol.value = String(settings.relTol);
+        if (settings.dtMin != null && ui.dtMin) ui.dtMin.value = String(settings.dtMin);
+        if (settings.dtMax != null && ui.dtMax) ui.dtMax.value = String(settings.dtMax);
+        if (settings.transient != null && ui.transient) ui.transient.value = String(settings.transient);
+        if (settings.ppf != null && ui.ppf) ui.ppf.value = String(settings.ppf);
+        // PDE
+        if (settings.pdeType != null && ui.pdeType) ui.pdeType.value = String(settings.pdeType);
+        if (settings.pdeNx != null && ui.pdeNx) ui.pdeNx.value = String(settings.pdeNx);
+        if (settings.pdeNy != null && ui.pdeNy) ui.pdeNy.value = String(settings.pdeNy);
+        if (settings.pdeXMin != null && ui.pdeXMin) ui.pdeXMin.value = String(settings.pdeXMin);
+        if (settings.pdeXMax != null && ui.pdeXMax) ui.pdeXMax.value = String(settings.pdeXMax);
+        if (settings.pdeYMin != null && ui.pdeYMin) ui.pdeYMin.value = String(settings.pdeYMin);
+        if (settings.pdeYMax != null && ui.pdeYMax) ui.pdeYMax.value = String(settings.pdeYMax);
+        if (settings.pdeAlpha != null && ui.pdeAlpha) ui.pdeAlpha.value = String(settings.pdeAlpha);
+        if (settings.pdeBC != null && ui.pdeBC) ui.pdeBC.value = String(settings.pdeBC);
+        if (settings.pdeZScale != null && ui.pdeZScale) ui.pdeZScale.value = String(settings.pdeZScale);
+        if (settings.pdeU0 != null && ui.pdeU0) ui.pdeU0.value = String(settings.pdeU0);
+        if (settings.pdeSource != null && ui.pdeSource) ui.pdeSource.value = String(settings.pdeSource);
+        if (settings.pdeNonlinear != null && ui.pdeNonlinear) ui.pdeNonlinear.value = String(settings.pdeNonlinear);
+        // DAE
+        if (settings.daeIndex != null && ui.daeIndex) ui.daeIndex.value = String(settings.daeIndex);
+        if (settings.daeNx != null && ui.daeNx) ui.daeNx.value = String(settings.daeNx);
+        if (settings.daeF != null && ui.daeF) ui.daeF.value = String(settings.daeF);
+        if (settings.daeGPos != null && ui.daeGPos) ui.daeGPos.value = String(settings.daeGPos);
+        if (settings.daeG != null && ui.daeG) ui.daeG.value = String(settings.daeG);
+        if (settings.daeTol != null && ui.daeTol) ui.daeTol.value = String(settings.daeTol);
+        if (settings.daeNewtonIters != null && ui.daeNewtonIters) ui.daeNewtonIters.value = String(settings.daeNewtonIters);
+        // Hybrid
+        if (settings.hybridEvent != null && ui.hybridEvent) ui.hybridEvent.value = String(settings.hybridEvent);
+        if (settings.hybridReset != null && ui.hybridReset) ui.hybridReset.value = String(settings.hybridReset);
+        // Algebraic
+        if (settings.algMode != null && ui.algMode) ui.algMode.value = String(settings.algMode);
+        if (settings.algF != null && ui.algF) ui.algF.value = String(settings.algF);
+        if (settings.algIso != null && ui.algIso) ui.algIso.value = String(settings.algIso);
+        if (settings.algRes != null && ui.algRes) ui.algRes.value = String(settings.algRes);
+        if (settings.algXMin != null && ui.algXMin) ui.algXMin.value = String(settings.algXMin);
+        if (settings.algXMax != null && ui.algXMax) ui.algXMax.value = String(settings.algXMax);
+        if (settings.algYMin != null && ui.algYMin) ui.algYMin.value = String(settings.algYMin);
+        if (settings.algYMax != null && ui.algYMax) ui.algYMax.value = String(settings.algYMax);
+        if (settings.algZMin != null && ui.algZMin) ui.algZMin.value = String(settings.algZMin);
+        if (settings.algZMax != null && ui.algZMax) ui.algZMax.value = String(settings.algZMax);
+        // Trigger UI updates
+        if (ui.systemType) ui.systemType.dispatchEvent(new Event('change'));
+        if (ui.daeIndex && typeof updateDaeIndexHint === 'function') {
+          updateDaeIndexHint();
+          if (typeof updateDaeGLabel === 'function') updateDaeGLabel();
+        }
+      }
+
+      function createInstance(name, color, settings) {
+        const id = nextInstanceId++;
+        const inst = {
+          id,
+          name: name || `Instance ${id}`,
+          color: color || new THREE.Color().setHSL((id * 0.618) % 1, 0.8, 0.6),
+          visible: true,
+          runtime: null,
+          render: createInstanceGeometry(id, color || new THREE.Color().setHSL((id * 0.618) % 1, 0.8, 0.6)),
+          settings: settings || getInstanceSettingsFromUI(), // Store settings
+        };
+        instances.push(inst);
+        return inst;
+      }
+
+      function removeInstance(id) {
+        const idx = instances.findIndex(i => i.id === id);
+        if (idx < 0) return;
+        const inst = instances[idx];
+        if (inst.runtime) {
+          // Stop if running
+          inst.runtime.running = false;
+        }
+        removeInstanceGeometry(inst.render);
+        instances.splice(idx, 1);
+        if (activeInstanceId === id) {
+          activeInstanceId = instances.length > 0 ? instances[0].id : null;
+          if (activeInstanceId != null) {
+            const newActive = instances.find(i => i.id === activeInstanceId);
+            if (newActive && newActive.settings) {
+              loadInstanceSettingsToUI(newActive.settings);
+            }
+          }
+        }
+        updateInstancesUI();
+      }
+
+      function cloneRuntimeState(src) {
+        // Deep clone runtime state
+        const dst = {
+          running: src.running,
+          solver: src.solver,
+          systemType: src.systemType,
+          sigma: src.sigma,
+          dim: src.dim,
+          proj: [...src.proj],
+          dt: src.dt,
+          h: src.h,
+          dtMin: src.dtMin,
+          dtMax: src.dtMax,
+          absTol: src.absTol,
+          relTol: src.relTol,
+          maxSteps: src.maxSteps,
+          transientSteps: src.transientSteps,
+          pointsPerFrame: src.pointsPerFrame,
+          params: { ...src.params },
+          compiled: src.compiled, // Shared reference (immutable after compile)
+          t: src.t,
+          stepIndex: src.stepIndex,
+          state: new Float64Array(src.state),
+          lastGood: new Float64Array(src.lastGood),
+          skippedDerivs: src.skippedDerivs,
+          rejectedSteps: src.rejectedSteps,
+          capacity: 0,
+          count: 0,
+          positions: null,
+          colors: null,
+          scope: { ...src.scope },
+          pde: {
+            type: src.pde.type,
+            nx: src.pde.nx,
+            ny: src.pde.ny,
+            xmin: src.pde.xmin,
+            xmax: src.pde.xmax,
+            ymin: src.pde.ymin,
+            ymax: src.pde.ymax,
+            dx: src.pde.dx,
+            dy: src.pde.dy,
+            alpha: src.pde.alpha,
+            bc: src.pde.bc,
+            zScale: src.pde.zScale,
+            u0: src.pde.u0, // Shared
+            source: src.pde.source, // Shared
+            sourceIsZero: src.pde.sourceIsZero,
+            nonlinear: src.pde.nonlinear, // Shared
+            nonlinearIsZero: src.pde.nonlinearIsZero,
+            u: src.pde.u ? new Float64Array(src.pde.u) : null,
+            uNext: src.pde.uNext ? new Float64Array(src.pde.uNext) : null,
+            uMin: src.pde.uMin,
+            uMax: src.pde.uMax,
+          },
+          dae: {
+            nx: src.dae.nx,
+            ny: src.dae.ny,
+            f: src.dae.f, // Shared
+            g: src.dae.g, // Shared
+            tol: src.dae.tol,
+            maxIters: src.dae.maxIters,
+          },
+          hybrid: {
+            cond: src.hybrid.cond, // Shared
+            resetTargets: src.hybrid.resetTargets ? [...src.hybrid.resetTargets] : null,
+            resetExprs: src.hybrid.resetExprs, // Shared
+            maxEventsPerStep: src.hybrid.maxEventsPerStep,
+          },
+        };
+        return dst;
+      }
+
+      function resetInstanceGeometry(inst, capacity) {
+        if (!inst.render) return;
+        inst.runtime.capacity = capacity;
+        inst.runtime.count = 0;
+        inst.runtime.positions = new Float32Array(capacity * 3);
+        inst.runtime.colors = new Float32Array(capacity * 3);
+        inst.render.geometry.setAttribute('position', new THREE.BufferAttribute(inst.runtime.positions, 3));
+        inst.render.geometry.setAttribute('color', new THREE.BufferAttribute(inst.runtime.colors, 3));
+        inst.render.geometry.setDrawRange(0, 0);
+      }
+
+      function appendPointFromInstanceState(inst) {
+        const rt = inst.runtime;
+        if (!rt) return false;
+        const _projTmp = [0, 0, 0];
+        const n = rt.dim;
+        const px = rt.proj[0], py = rt.proj[1], pz = rt.proj[2];
+        const s = rt.state;
+        _projTmp[0] = s[Math.max(0, Math.min(n - 1, px))] ?? 0;
+        _projTmp[1] = s[Math.max(0, Math.min(n - 1, py))] ?? 0;
+        _projTmp[2] = s[Math.max(0, Math.min(n - 1, pz))] ?? 0;
+        const x = _projTmp[0], y = _projTmp[1], z = _projTmp[2];
+        if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return false;
+        const i = rt.count;
+        if (i >= rt.capacity) return false;
+        const p = i * 3;
+        rt.positions[p + 0] = x;
+        rt.positions[p + 1] = y;
+        rt.positions[p + 2] = z;
+        // Use instance color instead of gradient
+        const c = inst.color;
+        rt.colors[p + 0] = c.r;
+        rt.colors[p + 1] = c.g;
+        rt.colors[p + 2] = c.b;
+        rt.count++;
+        return true;
+      }
+
+      function setActiveInstance(id) {
+        // Save current UI to previous active instance
+        if (activeInstanceId != null) {
+          const prevInst = instances.find(i => i.id === activeInstanceId);
+          if (prevInst) {
+            prevInst.settings = getInstanceSettingsFromUI();
+          }
+        }
+        // Set new active instance
+        activeInstanceId = id;
+        // Load settings to UI
+        const inst = instances.find(i => i.id === id);
+        if (inst && inst.settings) {
+          loadInstanceSettingsToUI(inst.settings);
+        }
+        updateInstancesUI();
+      }
+
+      function updateInstancesUI() {
+        if (!ui.instancesList) return;
+        const lang = getCurrentLang();
+        const d = I18N[lang] || I18N.vi;
+        const listEl = ui.instancesList;
+        listEl.innerHTML = '';
+        instances.forEach(inst => {
+          const div = document.createElement('div');
+          div.style.display = 'flex';
+          div.style.alignItems = 'center';
+          div.style.gap = '8px';
+          div.style.marginBottom = '6px';
+          div.style.padding = '6px';
+          div.style.borderRadius = '6px';
+          const isActive = activeInstanceId === inst.id;
+          div.style.background = isActive ? 'rgba(100,150,255,0.2)' : 'rgba(255,255,255,0.05)';
+          div.style.border = isActive ? '1px solid rgba(100,150,255,0.5)' : '1px solid transparent';
+          div.style.cursor = 'pointer';
+          div.onclick = () => setActiveInstance(inst.id);
+          const colorBox = document.createElement('div');
+          colorBox.style.width = '20px';
+          colorBox.style.height = '20px';
+          colorBox.style.borderRadius = '4px';
+          colorBox.style.background = `rgb(${Math.round(inst.color.r * 255)}, ${Math.round(inst.color.g * 255)}, ${Math.round(inst.color.b * 255)})`;
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = inst.name;
+          nameSpan.style.flex = '1';
+          nameSpan.style.fontSize = '12px';
+          const toggleBtn = document.createElement('button');
+          toggleBtn.textContent = inst.visible ? '👁' : '🚫';
+          toggleBtn.style.padding = '4px 8px';
+          toggleBtn.style.fontSize = '11px';
+          toggleBtn.title = d.toggleInstance;
+          toggleBtn.onclick = (e) => {
+            e.stopPropagation(); // Prevent triggering setActiveInstance
+            inst.visible = !inst.visible;
+            applyRenderMode(); // Apply render mode (which respects inst.visible)
+            updateInstancesUI();
+          };
+          const removeBtn = document.createElement('button');
+          removeBtn.textContent = '×';
+          removeBtn.style.padding = '4px 8px';
+          removeBtn.style.fontSize = '14px';
+          removeBtn.title = d.removeInstance;
+          removeBtn.onclick = () => removeInstance(inst.id);
+          div.appendChild(colorBox);
+          div.appendChild(nameSpan);
+          div.appendChild(toggleBtn);
+          div.appendChild(removeBtn);
+          listEl.appendChild(div);
+        });
+        // Ensure all instances have correct visibility based on render mode
+        applyRenderMode();
+      }
+
+
       // ---- Renderer (dynamic BufferGeometry) ----
+      // Legacy single-instance objects (will be replaced by instance system)
       const pathGeometry = new THREE.BufferGeometry();
       const lineMaterial = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95 });
       const pointsMaterial = new THREE.PointsMaterial({ size: 0.01, vertexColors: true, sizeAttenuation: true });
@@ -3388,7 +4970,7 @@
       };
 
       // ---- Runtime state ----
-      const runtime = {
+      let runtime = {
         running: false,
         solver: 'rk4',
         systemType: 'ode', // 'ode' | 'map' | 'sde' | 'param' | 'pde'
@@ -4216,21 +5798,107 @@
         return true;
       }
 
-      function streamSolveChunk() {
-        if (!runtime.running) return;
-        if (runtime.systemType === 'pde') {
-          streamSolveChunkPde();
-          return;
-        }
-        if (runtime.systemType === 'dae') {
-          streamSolveChunkDAE();
-          return;
-        }
-        if (runtime.systemType === 'hybrid') {
-          streamSolveChunkHybrid();
-          return;
-        }
-        if (!runtime.compiled) return;
+      function streamSolveChunkForInstance(inst) {
+        // Run solver for a specific instance by temporarily swapping runtime
+        if (!inst.runtime || !inst.runtime.running || !inst.visible) return;
+        const savedRuntime = runtime;
+        runtime = inst.runtime; // Swap
+        
+        try {
+          if (runtime.systemType === 'pde') {
+            // PDE not supported for instances (use global runtime)
+            runtime = savedRuntime;
+            return;
+          }
+          if (runtime.systemType === 'dae') {
+            const nx = runtime.dae.nx | 0;
+            const ny = runtime.dae.ny | 0;
+            const dim = nx + ny;
+            if (!(nx >= 1) || !(ny >= 1) || runtime.dim !== dim) {
+              runtime = savedRuntime;
+              return;
+            }
+            const f = runtime.dae.f;
+            const g = runtime.dae.g;
+            if (!f || !g) {
+              runtime = savedRuntime;
+              return;
+            }
+
+            const dt = runtime.dt;
+            const perFrame = Math.max(1, runtime.pointsPerFrame | 0);
+            const maxSteps = runtime.maxSteps;
+            const transient = runtime.transientSteps;
+
+            const fVec = new Float64Array(nx);
+            const next = new Float64Array(dim);
+
+            let wrote = 0;
+            for (let n = 0; n < perFrame; n++) {
+              if (runtime.stepIndex >= maxSteps) {
+                runtime.running = false;
+                break;
+              }
+
+              next.set(runtime.state);
+              if (!daeEvalF(fVec, runtime.t, next, dim, f)) {
+                runtime.running = false;
+                break;
+              }
+              for (let i = 0; i < nx; i++) next[i] = next[i] + dt * fVec[i];
+
+              const proj = daeProjectY(next, dim, nx, ny, runtime.t + dt, g, runtime.dae.tol, runtime.dae.maxIters);
+              if (!proj.ok) {
+                runtime.running = false;
+                break;
+              }
+
+              runtime.state.set(next);
+              runtime.lastGood.set(next);
+              runtime.t += dt;
+              runtime.stepIndex++;
+
+              if (runtime.stepIndex <= transient) continue;
+              if (!appendPointFromInstanceState(inst)) continue;
+              wrote++;
+            }
+
+            if (wrote > 0 && inst.render) {
+              inst.render.geometry.setDrawRange(0, runtime.count);
+              inst.render.geometry.attributes.position.needsUpdate = true;
+              inst.render.geometry.attributes.color.needsUpdate = true;
+              inst.render.geometry.computeBoundingSphere();
+            }
+            runtime = savedRuntime;
+            return;
+          }
+          if (runtime.systemType === 'hybrid') {
+            // Hybrid solver - simplified version for instances
+            if (!runtime.compiled || !runtime.hybrid.cond) {
+              runtime = savedRuntime;
+              return;
+            }
+            const max = runtime.maxSteps;
+            const transient = runtime.transientSteps;
+            const perFrame = Math.max(1, runtime.pointsPerFrame | 0);
+
+            let wrote = 0;
+            for (let n = 0; n < perFrame; n++) {
+              if (runtime.stepIndex >= max) {
+                runtime.running = false;
+                break;
+              }
+              // Simplified: skip hybrid event detection for instances (complex)
+              runtime.running = false; // Disable for now
+              break;
+            }
+            runtime = savedRuntime;
+            return;
+          }
+          if (!runtime.compiled) {
+            runtime = savedRuntime;
+            return;
+          }
 
         const stepFn = (runtime.systemType === 'map')
           ? stepMap
@@ -4248,19 +5916,64 @@
         let wrote = 0;
         for (let n = 0; n < perFrame; n++) {
           if (runtime.stepIndex >= max) {
-            setRunning(false);
+              runtime.running = false;
             break;
           }
 
-          // advance integrator by 1 step (non-finite is ignored inside stepFn)
           stepFn();
           runtime.stepIndex++;
 
           if (runtime.stepIndex <= transient) continue;
-          if (!appendPointFromState()) {
-            // ignore non-finite points silently
-            continue;
+            if (!appendPointFromInstanceState(inst)) continue;
+            wrote++;
           }
+
+          if (wrote > 0 && inst.render) {
+            inst.render.geometry.setDrawRange(0, runtime.count);
+            inst.render.geometry.attributes.position.needsUpdate = true;
+            inst.render.geometry.attributes.color.needsUpdate = true;
+            inst.render.geometry.computeBoundingSphere();
+          }
+        } finally {
+          runtime = savedRuntime; // Restore
+        }
+      }
+
+      function streamSolveChunk() {
+        // Run global runtime (backward compatibility)
+        if (runtime.running) {
+          if (runtime.systemType === 'pde') {
+            streamSolveChunkPde();
+          } else if (runtime.systemType === 'dae') {
+            streamSolveChunkDAE();
+          } else if (runtime.systemType === 'hybrid') {
+            streamSolveChunkHybrid();
+          } else if (runtime.compiled) {
+            const stepFn = (runtime.systemType === 'map')
+              ? stepMap
+              : (runtime.systemType === 'sde')
+                ? stepSDEEulerMaruyama
+                : (runtime.systemType === 'param')
+                  ? stepParametric
+                  : ((runtime.solver === 'euler') ? stepEuler
+                    : isAdaptiveSolver(runtime.solver) ? () => stepAdaptiveOnce(runtime.solver)
+                    : stepRK4);
+            const max = runtime.maxSteps;
+            const transient = runtime.transientSteps;
+            const perFrame = Math.max(1, runtime.pointsPerFrame | 0);
+
+            let wrote = 0;
+            for (let n = 0; n < perFrame; n++) {
+              if (runtime.stepIndex >= max) {
+                setRunning(false);
+                break;
+              }
+
+              stepFn();
+              runtime.stepIndex++;
+
+              if (runtime.stepIndex <= transient) continue;
+              if (!appendPointFromState()) continue;
           wrote++;
         }
 
@@ -4268,8 +5981,14 @@
           pathGeometry.setDrawRange(0, runtime.count);
           pathGeometry.attributes.position.needsUpdate = true;
           pathGeometry.attributes.color.needsUpdate = true;
-          // computeBoundingSphere is useful for frustum culling; safe now because we guard non-finite points.
           pathGeometry.computeBoundingSphere();
+            }
+          }
+        }
+
+        // Run all instances
+        for (let i = 0; i < instances.length; i++) {
+          streamSolveChunkForInstance(instances[i]);
         }
       }
 
@@ -4833,6 +6552,29 @@
       function startSimulation() {
         try {
           showError('');
+          
+          // If no instances exist, create one automatically
+          if (instances.length === 0) {
+            const settings = getInstanceSettingsFromUI();
+            const newInst = createInstance(null, null, settings);
+            setActiveInstance(newInst.id);
+          }
+          
+          // Save current UI settings to active instance (if any)
+          if (activeInstanceId != null) {
+            const activeInst = instances.find(i => i.id === activeInstanceId);
+            if (activeInst) {
+              activeInst.settings = getInstanceSettingsFromUI();
+            }
+          } else {
+            // No active instance: create new one from current UI settings
+            const settings = getInstanceSettingsFromUI();
+            const newInst = createInstance(null, null, settings);
+            setActiveInstance(newInst.id);
+            // Note: setActiveInstance() already loads settings to UI, but since we just created
+            // the instance with the current UI settings, they're already in sync
+          }
+          
           // If we previously built an implicit surface, dispose it when starting other modes.
           if (runtime.systemType === 'implicit') {
             disposeImplicitSurface();
@@ -4910,6 +6652,17 @@
 
             applyRenderMode();
             setRunning(true);
+            // Runtime is created, now create instance runtime from it
+            if (activeInstanceId != null) {
+              const activeInst = instances.find(i => i.id === activeInstanceId);
+              if (activeInst) {
+                activeInst.runtime = cloneRuntimeState(runtime);
+                const capacity = Math.max(1, runtime.maxSteps - runtime.transientSteps);
+                resetInstanceGeometry(activeInst, capacity);
+                appendPointFromInstanceState(activeInst);
+                activeInst.runtime.running = true;
+              }
+            }
             return;
           }
           if (systemType === 'dae') {
@@ -4971,6 +6724,17 @@
 
             applyRenderMode();
             setRunning(true);
+            // Runtime is created, now create instance runtime from it
+            if (activeInstanceId != null) {
+              const activeInst = instances.find(i => i.id === activeInstanceId);
+              if (activeInst) {
+                activeInst.runtime = cloneRuntimeState(runtime);
+                const capacity = Math.max(1, runtime.maxSteps - runtime.transientSteps);
+                resetInstanceGeometry(activeInst, capacity);
+                appendPointFromInstanceState(activeInst);
+                activeInst.runtime.running = true;
+              }
+            }
             return;
           }
 
@@ -5048,6 +6812,17 @@
 
           applyRenderMode();
           setRunning(true);
+          // Runtime is created, now create instance runtime from it
+          if (activeInstanceId != null) {
+            const activeInst = instances.find(i => i.id === activeInstanceId);
+            if (activeInst) {
+              activeInst.runtime = cloneRuntimeState(runtime);
+              const capacity = Math.max(1, runtime.maxSteps - runtime.transientSteps);
+              resetInstanceGeometry(activeInst, capacity);
+              appendPointFromInstanceState(activeInst);
+              activeInst.runtime.running = true;
+            }
+          }
         } catch (err) {
           showError(`Start error:\n${String(err && err.message ? err.message : err)}`);
           setRunning(false);
@@ -5188,10 +6963,60 @@
       }
 
       // ---- Buttons ----
-      ui.start.addEventListener('click', startSimulation);
-      ui.validate?.addEventListener('click', validateSimulation);
-      ui.pause.addEventListener('click', () => setRunning(!runtime.running));
-      ui.reset.addEventListener('click', () => resetSimulation());
+      ui.start.addEventListener('click', () => {
+        // Start simulation for active instance (or create new if none)
+        startSimulation();
+      });
+      ui.validate?.addEventListener('click', () => {
+        // Validate active instance settings (save current UI first)
+        if (activeInstanceId != null) {
+          const activeInst = instances.find(i => i.id === activeInstanceId);
+          if (activeInst) {
+            activeInst.settings = getInstanceSettingsFromUI();
+            loadInstanceSettingsToUI(activeInst.settings);
+          }
+        }
+        validateSimulation();
+      });
+      ui.pause.addEventListener('click', () => {
+        // Pause active instance
+        if (activeInstanceId != null) {
+          const activeInst = instances.find(i => i.id === activeInstanceId);
+          if (activeInst && activeInst.runtime) {
+            activeInst.runtime.running = false;
+          }
+        }
+        runtime.running = false;
+      });
+      ui.reset.addEventListener('click', () => {
+        // Reset active instance runtime (but keep settings)
+        if (activeInstanceId != null) {
+          const activeInst = instances.find(i => i.id === activeInstanceId);
+          if (activeInst && activeInst.runtime) {
+            activeInst.runtime.running = false;
+            activeInst.runtime.count = 0;
+            if (activeInst.render) {
+              activeInst.render.geometry.setDrawRange(0, 0);
+            }
+            activeInst.runtime = null;
+          }
+        }
+        resetSimulation();
+      });
+      if (ui.addInstance) {
+        ui.addInstance.addEventListener('click', () => {
+          // Save current UI to active instance, then create new instance
+          if (activeInstanceId != null) {
+            const activeInst = instances.find(i => i.id === activeInstanceId);
+            if (activeInst) {
+              activeInst.settings = getInstanceSettingsFromUI();
+            }
+          }
+          const settings = getInstanceSettingsFromUI();
+          const newInst = createInstance(null, null, settings);
+          setActiveInstance(newInst.id);
+        });
+      }
 
       // ---- Wizards ----
       function splitCells(line) {
@@ -5223,12 +7048,22 @@
         const isPoints = String(currentMode || 'Line') === 'Points';
         const isPde = runtime.systemType === 'pde';
         const isImplicit = runtime.systemType === 'implicit';
+        const hasInstances = instances.length > 0;
         // PDE/Implicit use their own meshes; ignore path render modes
-        pathPoints.visible = !(isPde || isImplicit) && isPoints;
-        pathLine.visible = !(isPde || isImplicit) && !isPoints;
+        // Hide legacy pathLine/pathPoints when instances exist
+        pathPoints.visible = !(isPde || isImplicit) && isPoints && !hasInstances;
+        pathLine.visible = !(isPde || isImplicit) && !isPoints && !hasInstances;
         if (pdeSurface.mesh) pdeSurface.mesh.visible = isPde;
         if (implicitSurface.mesh) implicitSurface.mesh.visible = isImplicit && !isPoints;
         if (implicitSurface.points) implicitSurface.points.visible = isImplicit && isPoints;
+        // Apply render mode to all instances
+        for (const inst of instances) {
+          if (inst.render) {
+            // Instances don't support PDE/Implicit, so just toggle line/points
+            inst.render.line.visible = inst.visible && !isPoints;
+            inst.render.points.visible = inst.visible && isPoints;
+          }
+        }
       }
       if (settings.modeSelect) settings.modeSelect.value = currentMode;
       settings.modeSelect?.addEventListener('change', () => {
@@ -5371,14 +7206,14 @@
               `iters/frame=<code>${runtime.pointsPerFrame | 0}</code> ` +
               `solve=<code>${solveMs.toFixed(0)}ms</code>`;
           } else {
-            const hInfo = isAdaptiveSolver(runtime.solver) ? ` h=<code>${runtime.h.toExponential(2)}</code> rej=<code>${runtime.rejectedSteps}</code>` : '';
-            const modeInfo = ` mode=<code>${runtime.systemType}</code>` + (runtime.systemType === 'sde' ? ` sigma=<code>${Number(runtime.sigma).toExponential(2)}</code>` : '');
-            ui.stats.innerHTML =
-              `t=<code>${runtime.t.toFixed(4)}</code> ` +
-              `step=<code>${runtime.stepIndex}</code> ` +
-              `points=<code>${runtime.count}</code> ` +
-              `skippedDerivs=<code>${runtime.skippedDerivs}</code>` +
-              hInfo +
+          const hInfo = isAdaptiveSolver(runtime.solver) ? ` h=<code>${runtime.h.toExponential(2)}</code> rej=<code>${runtime.rejectedSteps}</code>` : '';
+          const modeInfo = ` mode=<code>${runtime.systemType}</code>` + (runtime.systemType === 'sde' ? ` sigma=<code>${Number(runtime.sigma).toExponential(2)}</code>` : '');
+          ui.stats.innerHTML =
+            `t=<code>${runtime.t.toFixed(4)}</code> ` +
+            `step=<code>${runtime.stepIndex}</code> ` +
+            `points=<code>${runtime.count}</code> ` +
+            `skippedDerivs=<code>${runtime.skippedDerivs}</code>` +
+            hInfo +
               modeInfo +
               ` solve=<code>${solveMs.toFixed(0)}ms</code>`;
           }
