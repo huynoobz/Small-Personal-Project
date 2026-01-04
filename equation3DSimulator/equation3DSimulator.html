@@ -1,5 +1,5 @@
 <!doctype html>
-<html version="2.5.1" by="huynoobz" lang="en">
+<html version="2.6.0(paused)" by="huynoobz" lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -183,6 +183,111 @@
     }
     /* Override for header button */
     #settings-panel .settings-header button { width: auto; padding: 0 10px; }
+    /* Help button style */
+    .help-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(100, 150, 255, 0.15);
+      border: 1px solid rgba(100, 150, 255, 0.3);
+      color: #64a0ff;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 26px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+    }
+    .help-btn:hover {
+      background: rgba(100, 150, 255, 0.25);
+      border-color: rgba(100, 150, 255, 0.4);
+    }
+    /* Help modal */
+    #help-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #help-modal.is-visible {
+      display: flex;
+    }
+    #help-modal-content {
+      background: rgba(20, 20, 25, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: min(600px, calc(100vw - 48px));
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      position: relative;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #help-modal-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #eaeaea;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 30px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #help-modal-close:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    #help-modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #64a0ff;
+    }
+    #help-modal-body {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #eaeaea;
+    }
+    #help-modal-body h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 20px;
+      margin-bottom: 8px;
+      color: #ffd36b;
+    }
+    #help-modal-body h3:first-child {
+      margin-top: 0;
+    }
+    #help-modal-body p {
+      margin-bottom: 12px;
+    }
+    #help-modal-body ul, #help-modal-body ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+    }
+    #help-modal-body li {
+      margin-bottom: 6px;
+    }
+    #help-modal-body code {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
     #open-settings {
       position: fixed;
       right: 12px;
@@ -231,6 +336,73 @@
     .section-title.is-collapsible.is-collapsed + .section-box {
       display: none !important;
     }
+    /* Sync toggle switch styling */
+    .sync-toggle-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: all 0.2s ease;
+      margin: 0;
+    }
+    .sync-toggle-label:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.15);
+    }
+    .sync-toggle-label #sync-instances-label {
+      font-weight: 500;
+      font-size: 13px;
+      color: #eaeaea;
+      user-select: none;
+    }
+    .sync-toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .sync-toggle-switch input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .sync-toggle-slider {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255,255,255,0.2);
+      border-radius: 13px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+    .sync-toggle-slider:before {
+      content: '';
+      position: absolute;
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background: #eaeaea;
+      border-radius: 50%;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    #sync-instances:checked + .sync-toggle-slider {
+      background: rgba(255, 211, 107, 0.35);
+      border: 1px solid rgba(255, 211, 107, 0.6);
+    }
+    #sync-instances:checked + .sync-toggle-slider:before {
+      transform: translateX(22px);
+      background: #ffd36b;
+      box-shadow: 0 2px 8px rgba(255, 211, 107, 0.5);
+    }
     .section-box {
       border: 1px solid rgba(255,255,255,0.10);
       background: rgba(255,255,255,0.03);
@@ -268,7 +440,10 @@
   <div id="settings-panel">
     <div class="settings-header">
       <div id="settings-title" class="settings-title">Settings</div>
-      <button id="settings-close" title="Close settings" aria-label="Close settings">-</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="settings-help" class="help-btn" title="Help: Camera and First Person controls">?</button>
+        <button id="settings-close" title="Close settings" aria-label="Close settings">-</button>
+      </div>
     </div>
     <div id="settings-body">
       <div>
@@ -324,6 +499,7 @@
     <div class="header">
       <div id="panel-title" class="title">3D Simulator Controller</div>
       <div style="display:flex; gap:8px; align-items:center;">
+        <button id="ui-help" class="help-btn" title="Help: Creating simulations">?</button>
         <button id="close-controls" class="close-btn" title="Close controls" aria-label="Close controls">×</button>
       </div>
     </div>
@@ -712,6 +888,15 @@
     <div class="section-box">
       <div id="instances-list" style="margin-bottom: 10px;"></div>
       <button id="add-instance" style="width: 100%;">+ Add Instance</button>
+      <div class="row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <label class="sync-toggle-label" for="sync-instances">
+          <span id="sync-instances-label">Sync all instances</span>
+          <div class="sync-toggle-switch">
+            <input type="checkbox" id="sync-instances" />
+            <span class="sync-toggle-slider"></span>
+          </div>
+        </label>
+      </div>
     </div>
 
     <div class="buttons row">
@@ -1060,6 +1245,8 @@
         sectionInstances: document.getElementById('section-instances'),
         instancesList: document.getElementById('instances-list'),
         addInstance: document.getElementById('add-instance'),
+        syncInstances: document.getElementById('sync-instances'),
+        syncInstancesLabel: document.getElementById('sync-instances-label'),
         mainHint: document.getElementById('main-hint'),
         stats: document.getElementById('stats'),
         preset: document.getElementById('preset'),
@@ -1273,6 +1460,161 @@
       settings.close?.addEventListener('click', () => setSettingsOpen(false));
       settings.openBtn?.addEventListener('click', () => setSettingsOpen(true));
 
+      // ---- Help Modal ----
+      const helpModal = document.getElementById('help-modal');
+      const helpModalClose = document.getElementById('help-modal-close');
+      const helpModalTitle = document.getElementById('help-modal-title');
+      const helpModalBody = document.getElementById('help-modal-body');
+      const uiHelpBtn = document.getElementById('ui-help');
+      const settingsHelpBtn = document.getElementById('settings-help');
+
+      function showHelp(title, content) {
+        if (!helpModal || !helpModalTitle || !helpModalBody) return;
+        helpModalTitle.textContent = title;
+        helpModalBody.innerHTML = content;
+        helpModal.classList.add('is-visible');
+      }
+
+      function hideHelp() {
+        if (!helpModal) return;
+        helpModal.classList.remove('is-visible');
+      }
+
+      helpModalClose?.addEventListener('click', hideHelp);
+      helpModal?.addEventListener('click', (e) => {
+        if (e.target === helpModal) hideHelp();
+      });
+
+      // Help content for UI panel (creating simulations)
+      const uiHelpContent = {
+        vi: `
+          <h3>Tạo mô phỏng mới</h3>
+          <p>Để tạo một mô phỏng 3D, làm theo các bước sau:</p>
+          <ol>
+            <li><strong>Chọn System category:</strong> Chọn loại hệ thống bạn muốn mô phỏng (ODE, PDE, Hybrid, v.v.)</li>
+            <li><strong>Chọn Preset:</strong> Chọn một preset có sẵn hoặc tạo mới từ Custom</li>
+            <li><strong>Nhập phương trình:</strong> Nhập các phương trình vi phân hoặc đại số vào các trường tương ứng</li>
+            <li><strong>Thiết lập tham số:</strong> Định nghĩa các tham số (ví dụ: sigma=10, rho=28)</li>
+            <li><strong>Thiết lập điều kiện ban đầu:</strong> Nhập giá trị khởi tạo (ví dụ: 0.1, 0.1, 0.1)</li>
+            <li><strong>Cấu hình Run:</strong> Đặt dt (bước thời gian), steps (số bước), và các tham số khác</li>
+            <li><strong>Nhấn Start:</strong> Bắt đầu mô phỏng</li>
+          </ol>
+          <h3>Lưu ý</h3>
+          <ul>
+            <li>Sử dụng biến <code>x, y, z, t</code> và các tham số tùy ý</li>
+            <li>Dùng các hàm math.js như <code>sin</code>, <code>cos</code>, <code>pow</code>, <code>exp</code></li>
+            <li>Ví dụ Lorenz: <code>dx=sigma*(y-x)</code>, <code>dy=x*(rho-z)-y</code>, <code>dz=x*y-beta*z</code></li>
+            <li>Bạn có thể tạo nhiều instances và chạy đồng bộ với sync mode</li>
+          </ul>
+        `,
+        en: `
+          <h3>Creating a new simulation</h3>
+          <p>To create a 3D simulation, follow these steps:</p>
+          <ol>
+            <li><strong>Select System category:</strong> Choose the type of system you want to simulate (ODE, PDE, Hybrid, etc.)</li>
+            <li><strong>Choose Preset:</strong> Select an existing preset or create a new one from Custom</li>
+            <li><strong>Enter equations:</strong> Input differential or algebraic equations into the corresponding fields</li>
+            <li><strong>Set parameters:</strong> Define parameters (e.g., sigma=10, rho=28)</li>
+            <li><strong>Set initial conditions:</strong> Enter initial values (e.g., 0.1, 0.1, 0.1)</li>
+            <li><strong>Configure Run:</strong> Set dt (time step), steps (number of steps), and other parameters</li>
+            <li><strong>Press Start:</strong> Begin the simulation</li>
+          </ol>
+          <h3>Notes</h3>
+          <ul>
+            <li>Use variables <code>x, y, z, t</code> and arbitrary parameters</li>
+            <li>Use math.js functions like <code>sin</code>, <code>cos</code>, <code>pow</code>, <code>exp</code></li>
+            <li>Lorenz example: <code>dx=sigma*(y-x)</code>, <code>dy=x*(rho-z)-y</code>, <code>dz=x*y-beta*z</code></li>
+            <li>You can create multiple instances and run them in sync mode</li>
+          </ul>
+        `
+      };
+
+      // Help content for Settings panel (camera and FP controls)
+      const settingsHelpContent = {
+        vi: `
+          <h3>Điều khiển Camera</h3>
+          <p><strong>Chế độ Orbit (mặc định):</strong></p>
+          <ul>
+            <li><strong>WASD:</strong> Di chuyển tiến/lùi/trái/phải</li>
+            <li><strong>Shift:</strong> Di chuyển lên</li>
+            <li><strong>Ctrl:</strong> Di chuyển xuống</li>
+            <li><strong>Kéo chuột trái:</strong> Xoay camera quanh đối tượng</li>
+            <li><strong>Scroll chuột:</strong> Zoom in/out</li>
+            <li><strong>Kéo chuột phải:</strong> Pan (di chuyển view)</li>
+          </ul>
+          <h3>Chế độ First Person (FP)</h3>
+          <p>Kích hoạt bằng cách nhấn phím <code>Alt</code> hoặc chọn trong Settings</p>
+          <ul>
+            <li><strong>WASD:</strong> Di chuyển tiến/lùi/trái/phải</li>
+            <li><strong>Shift:</strong> Di chuyển lên</li>
+            <li><strong>Ctrl:</strong> Di chuyển xuống</li>
+            <li><strong>Di chuyển chuột:</strong> Xoay camera</li>
+            <li><strong>Scroll:</strong> Điều chỉnh tốc độ di chuyển</li>
+            <li><strong>Nhấn Alt lại:</strong> Tắt chế độ FP</li>
+          </ul>
+          <h3>Cài đặt</h3>
+          <ul>
+            <li><strong>Camera speed:</strong> Tốc độ di chuyển trong chế độ FP</li>
+            <li><strong>Mouse sensitivity:</strong> Độ nhạy khi xoay camera</li>
+            <li><strong>Point size:</strong> Kích thước điểm hiển thị</li>
+            <li><strong>Render mode:</strong> Chế độ hiển thị (Line hoặc Points)</li>
+            <li><strong>Reset view:</strong> Đặt lại vị trí camera về mặc định</li>
+          </ul>
+        `,
+        en: `
+          <h3>Camera Controls</h3>
+          <p><strong>Orbit mode (default):</strong></p>
+          <ul>
+            <li><strong>WASD:</strong> Move forward/backward/left/right</li>
+            <li><strong>Shift:</strong> Move up</li>
+            <li><strong>Ctrl:</strong> Move down</li>
+            <li><strong>Left mouse drag:</strong> Rotate camera around object</li>
+            <li><strong>Mouse scroll:</strong> Zoom in/out</li>
+            <li><strong>Right mouse drag:</strong> Pan (move view)</li>
+          </ul>
+          <h3>First Person (FP) Mode</h3>
+          <p>Activate by pressing <code>Alt</code> key or selecting in Settings</p>
+          <ul>
+            <li><strong>WASD:</strong> Move forward/backward/left/right</li>
+            <li><strong>Shift:</strong> Move up</li>
+            <li><strong>Ctrl:</strong> Move down</li>
+            <li><strong>Mouse movement:</strong> Rotate camera</li>
+            <li><strong>Scroll:</strong> Adjust movement speed</li>
+            <li><strong>Press Alt again:</strong> Exit FP mode</li>
+          </ul>
+          <h3>Settings</h3>
+          <ul>
+            <li><strong>Camera speed:</strong> Movement speed in FP mode</li>
+            <li><strong>Mouse sensitivity:</strong> Sensitivity when rotating camera</li>
+            <li><strong>Point size:</strong> Display point size</li>
+            <li><strong>Render mode:</strong> Display mode (Line or Points)</li>
+            <li><strong>Reset view:</strong> Reset camera position to default</li>
+          </ul>
+        `
+      };
+
+      // Get current language
+      function getCurrentHelpLang() {
+        try {
+          const lang = localStorage.getItem('sim_ui_lang') || 'vi';
+          return lang === 'en' ? 'en' : 'vi';
+        } catch (_) {
+          return 'vi';
+        }
+      }
+
+      uiHelpBtn?.addEventListener('click', () => {
+        const lang = getCurrentHelpLang();
+        const title = lang === 'en' ? 'Help: Creating Simulations' : 'Hướng dẫn: Tạo mô phỏng';
+        showHelp(title, uiHelpContent[lang]);
+      });
+
+      settingsHelpBtn?.addEventListener('click', () => {
+        const lang = getCurrentHelpLang();
+        const title = lang === 'en' ? 'Help: Camera and First Person Controls' : 'Hướng dẫn: Điều khiển Camera và First Person';
+        showHelp(title, settingsHelpContent[lang]);
+      });
+
       // ---- Language (i18n) ----
       const UI_LANG_KEY = 'sim_ui_lang';
       const I18N = {
@@ -1288,6 +1630,7 @@
           addInstance: '+ Thêm mô phỏng',
           removeInstance: 'Xóa',
           toggleInstance: 'Ẩn/Hiện',
+          syncInstances: 'Đồng bộ tất cả instances',
           systemCategory: 'Phân loại hệ',
           preset: 'Preset',
           presetSearch: 'Tìm preset',
@@ -1351,6 +1694,7 @@
           addInstance: '+ Add Instance',
           removeInstance: 'Remove',
           toggleInstance: 'Hide/Show',
+          syncInstances: 'Sync all instances',
           systemCategory: 'System category',
           preset: 'Preset',
           presetSearch: 'Search presets',
@@ -1436,11 +1780,6 @@
         const label = row ? row.querySelector('label') : null;
         if (label) label.textContent = text;
       }
-      function setPrevLabel(el, text) {
-        const prev = el?.previousElementSibling;
-        if (prev && prev.tagName === 'LABEL') prev.textContent = text;
-      }
-
       // Boot-safe running flag (avoid touching runtime before it's initialized)
       let uiIsRunning = false;
       // Some functions are hoisted and can be called during early preset setup
@@ -1472,6 +1811,7 @@
         if (ui.sectionRun) ui.sectionRun.textContent = d.sectionRun;
         if (ui.sectionInstances) ui.sectionInstances.textContent = d.sectionInstances;
         if (ui.addInstance) ui.addInstance.textContent = d.addInstance;
+        if (ui.syncInstancesLabel) ui.syncInstancesLabel.textContent = d.syncInstances;
 
         // Basic/Advanced removed
 
@@ -2337,25 +2677,6 @@
           steps: '200000',
           transient: '0',
         },
-        'Stochastic Attractors with Multiplicative Noise': {
-          // dx = (σ(y−x))dt + αx dW (noise depends on state)
-          // Modified Lorenz with multiplicative noise
-          category: 'stochastic',
-          systemType: 'sde',
-          dim: '3',
-          projX: '1',
-          projY: '2',
-          projZ: '3',
-          dx: 'sigmaL*(y-x)',
-          dy: 'x*(rho-z)-y',
-          dz: 'x*y-beta*z',
-          params: 'sigmaL=10\nrho=28\nbeta=8/3',
-          init: '0.1, 0.1, 0.1',
-          dt: '0.003',
-          sigma: '0.5',
-          steps: '200000',
-          transient: '0',
-        },
         'Helix (parametric)': {
           // x(t)=cos(t), y(t)=sin(t), z(t)=0.05*t
           category: 'algebraic',
@@ -3044,7 +3365,7 @@
           params: 'g=9.8\nc=0.8',
           init: '0, 0, 2, 1, 0.5, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Hybrid — Pendulum + Switching Controller (3D)': {
@@ -3063,7 +3384,7 @@
           params: 'g=9.8\nL=1\nu_control=2\ntheta0=0.5',
           init: '0, 1.2, 0, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Hybrid — Robot Navigation with Collision': {
@@ -3081,8 +3402,8 @@
           hybridReset: 'x3 = x3 + pi/2',
           params: 'v=1\nomega=0.1',
           init: '0, 0, 0, 0',
-          dt: '0.01',
-          steps: '200000',
+          dt: '0.001',
+          steps: '2000',
           transient: '0',
         },
         'Hybrid — Piecewise Linear Chaotic Attractor': {
@@ -3100,26 +3421,27 @@
           params: 'a1=0.5\na2=-0.3\na3=0.2\na4=0.1\na5=0.4\na6=-0.1\na7=-0.2\na8=0.1\na9=0.3\nb1=-0.3\nb2=0.2\nb3=0.1\nb4=0.2\nb5=-0.4\nb6=0.3\nb7=0.1\nb8=-0.2\nb9=-0.3\nc=0',
           init: '0.1, 0.1, 0.1, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Hybrid — Hopf Oscillator with Reset': {
           // r' = μr(1−r²), θ' = ω
           // Reset: if θ >= 2π → θ := θ - 2π
           // 3D: x = r cosθ, y = r sinθ, z = θ
+          // Note: r = sqrt(x1^2 + x2^2), theta = atan2(x2, x1)
           category: 'hybrid',
           systemType: 'hybrid',
           dim: '3',
           projX: '1',
           projY: '2',
           projZ: '3',
-          eqs: "r = sqrt(x1*x1 + x2*x2)\ntheta = atan2(x2, x1)\nx1' = mu*r*(1 - r*r)*cos(theta) - omega*r*sin(theta)\nx2' = mu*r*(1 - r*r)*sin(theta) + omega*r*cos(theta)\nx3' = omega",
+          eqs: "x1' = mu*x1*(1 - (x1*x1 + x2*x2)) - omega*x2\nx2' = mu*x2*(1 - (x1*x1 + x2*x2)) + omega*x1\nx3' = omega",
           hybridEvent: 'x3 >= 2*pi',
           hybridReset: 'x3 = x3 - 2*pi',
           params: 'mu=1\nomega=1',
           init: '0.5, 0, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Hybrid — Predator–Prey with Harvest Events': {
@@ -3138,26 +3460,27 @@
           params: 'a=1\nb=0.1\nc=0.5\nd=0.02\nXmax=10\nalpha=0.5',
           init: '5, 3, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '20000',
           transient: '0',
         },
         'Hybrid — Chua Circuit (Nonlinear switching)': {
           // Switch: if |x| < 1 → mode 1, else → mode 2
           // x' = α(y − x − m(x)), y' = x − y + z, z' = −βy
           // Mode encoded in x4: 0 = |x| < 1, 1 = |x| >= 1
+          // m(x) = (x4 == 0) ? (m1*x1) : (m0*x1 + 0.5*(m0-m1)*(abs(x1+1) - abs(x1-1)))
           category: 'hybrid',
           systemType: 'hybrid',
           dim: '4',
           projX: '1',
           projY: '2',
           projZ: '3',
-          eqs: "m = (x4 == 0) ? (m1*x1) : (m0*x1 + 0.5*(m0-m1)*(abs(x1+1) - abs(x1-1)))\nx1' = alpha*(x2 - x1 - m)\nx2' = x1 - x2 + x3\nx3' = -beta*x2\nx4' = 0",
+          eqs: "x1' = alpha*(x2 - x1 - ((x4 == 0) ? (m1*x1) : (m0*x1 + 0.5*(m0-m1)*(abs(x1+1) - abs(x1-1)))))\nx2' = x1 - x2 + x3\nx3' = -beta*x2\nx4' = 0",
           hybridEvent: 'abs(x1) >= 1 && x4 == 0 || abs(x1) < 1 && x4 == 1',
           hybridReset: 'x4 = (abs(x1) < 1) ? 0 : 1',
           params: 'alpha=15.6\nbeta=28\nm0=-1.143\nm1=-0.714',
           init: '0.1, 0, 0, 0',
           dt: '0.004',
-          steps: '260000',
+          steps: '26000',
           transient: '0',
         },
         'Hybrid — Rigid Body with Contact Events': {
@@ -3175,7 +3498,7 @@
           params: 'I1=1\nI2=0.8\nI3=0.6\ntau_x=0.1\ntau_y=0.05\ntau_z=0.08\nE_max=5\nc_reduce=0.9',
           init: '0.5, 0.3, 0.2',
           dt: '0.01',
-          steps: '200000',
+          steps: '10000',
           transient: '0',
         },
         'Hybrid — Gradient Flow + Switching Potential': {
@@ -3194,7 +3517,7 @@
           params: '',
           init: '0.5, 0.5, 0.5, 1',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Hamilton — simple pendulum (q,p)': {
@@ -3209,7 +3532,7 @@
           params: '',
           init: '1.2, 0.0',
           dt: '0.01',
-          steps: '220000',
+          steps: '11000',
           transient: '2000',
         },
         'Lagrange — Constrained Particle on Sphere (Geodesic on S²)': {
@@ -3225,7 +3548,7 @@
           params: 'g=9.8\nR=1',
           init: 'pi/3, 0, 0, 1',
           dt: '0.01',
-          steps: '200000',
+          steps: '10000',
           transient: '0',
         },
         'Lagrange — Double Spherical Pendulum (3D)': {
@@ -3241,7 +3564,7 @@
           params: 'g=9.8\nL1=1\nL2=1\nm1=1\nm2=1',
           init: 'pi/3, pi/4, 0, 0, 0, 0.5',
           dt: '0.01',
-          steps: '200000',
+          steps: '10000',
           transient: '0',
         },
         'Lagrange — Rigid Body Free Rotation (SO(3))': {
@@ -3256,7 +3579,7 @@
           params: 'I1=2\nI2=1.5\nI3=1',
           init: '0.5, 0.3, 0.2',
           dt: '0.01',
-          steps: '200000',
+          steps: '5000',
           transient: '0',
         },
         'Lagrange — Lagrange Top (Spinning Top)': {
@@ -3271,7 +3594,7 @@
           params: 'I1=1\nI3=0.5\nM=1\ng=9.8\nl=0.5',
           init: 'pi/4, 0, 0, 0, 2, 5',
           dt: '0.01',
-          steps: '200000',
+          steps: '5000',
           transient: '0',
         },
         'Lagrange — Sphere Rolling Without Slipping': {
@@ -3287,7 +3610,7 @@
           params: 'R=1',
           init: '0, 0, 1, 0, 1',
           dt: '0.01',
-          steps: '200000',
+          steps: '5000',
           transient: '0',
         },
         'Lagrange — 3D Spring–Mass Network': {
@@ -3303,7 +3626,7 @@
           params: 'k=1\nm=1',
           init: '1, 0, 0, 0, 0, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '5000',
           transient: '0',
         },
         'Lagrange — Kepler Problem (3D)': {
@@ -3318,7 +3641,7 @@
           params: 'GM=1',
           init: '1, 0, 0, 0, 0.8, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '5000',
           transient: '0',
         },
         'Lagrange — Magnetic Lorentz Dynamics': {
@@ -3334,7 +3657,7 @@
           params: 'q=1\nB=1\nm=1',
           init: '0, 0, 0, 1, 0, 0.5',
           dt: '0.01',
-          steps: '200000',
+          steps: '20000',
           transient: '0',
         },
         'Lagrange — Geodesics on Torus (3D)': {
@@ -3350,7 +3673,7 @@
           params: 'R=2\nr=0.5',
           init: '0, 0, 0.5, 1',
           dt: '0.01',
-          steps: '200000',
+          steps: '20000',
           transient: '0',
         },
         'Lagrange — Nonlinear Elastic Rod (Cosserat)': {
@@ -3366,7 +3689,7 @@
           params: 'k_bend=1\nk_twist=0.5\nm=1',
           init: '0.1, 0, 0, 0, 0, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '20000',
           transient: '0',
         },
         'Gradient flow — Rosenbrock (2D)': {
@@ -3381,7 +3704,7 @@
           params: '',
           init: '-1.2, 1.0',
           dt: '0.001',
-          steps: '200000',
+          steps: '20000',
           transient: '0',
         },
         'Gradient Flow — Parabolic Well 3D': {
@@ -3397,7 +3720,7 @@
           params: '',
           init: '1, 1, 1',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Gradient Flow — Double Well Potential 3D': {
@@ -3413,37 +3736,42 @@
           params: '',
           init: '0.5, 0.5, 0.5',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Gradient Flow — Mexican Hat / Higgs Potential 3D': {
           // V = ¼(r²-1)² + az², r² = x²+y²
+          // Gradient: ẋ = -(r²-1)x, ẏ = -(r²-1)y, ż = -2az
           category: 'optimization',
           systemType: 'ode',
           dim: '3',
           projX: '1',
           projY: '2',
           projZ: '3',
-          eqs: "r2 = x1*x1 + x2*x2\nx1' = -(r2 - 1)*x1\nx2' = -(r2 - 1)*x2\nx3' = -2*a*x3",
+          eqs: "x1' = -(x1*x1 + x2*x2 - 1)*x1\nx2' = -(x1*x1 + x2*x2 - 1)*x2\nx3' = -2*a*x3",
           params: 'a=0.5',
           init: '0.8, 0, 0.5',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Gradient Flow — Rosenbrock 3D': {
           // V(x,y,z) = (1-x)² + 100(y-x²)² + 100(z-y²)²
+          // Gradient: ẋ = -∇V
+          // ∂V/∂x = -2(1-x) - 400x(y-x²)
+          // ∂V/∂y = -200(y-x²) - 400y(z-y²)
+          // ∂V/∂z = -200(z-y²)
           category: 'optimization',
           systemType: 'ode',
           dim: '3',
           projX: '1',
           projY: '2',
           projZ: '3',
-          eqs: "x1' = 2*(1-x1) + 400*x1*(x2 - x1*x1) + 40000*x1*(x2*x2 - x3)\nx2' = -200*(x2 - x1*x1) + 400*x2*(x2*x2 - x3)\nx3' = -200*(x3 - x2*x2)",
+          eqs: "x1' = 2*(1-x1) + 400*x1*(x2 - x1*x1)\nx2' = 200*(x2 - x1*x1) + 400*x2*(x3 - x2*x2)\nx3' = 200*(x3 - x2*x2)",
           params: '',
           init: '-1.2, 1.0, 1.0',
           dt: '0.001',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Gradient Flow — 3D Quadratic + Saddle Mix': {
@@ -3459,23 +3787,25 @@
           params: '',
           init: '0.5, 0.5, 0.5',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Gradient Flow — Torus Surface (Geodesic damping)': {
           // V(θ,φ) = cosθ + cosφ on torus
           // Torus: (R + r cos u) cos v, (R + r cos u) sin v, r sin u
+          // Gradient flow: ẋ = -∇V with damping
+          // x1=θ, x2=φ, x3=θ', x4=φ'
           category: 'optimization',
           systemType: 'ode',
           dim: '4',
           projX: '1',
           projY: '2',
           projZ: '3',
-          eqs: "x1' = x3\nx2' = x4\nx3' = sin(x1)/(R + r*cos(x1))\nx4' = sin(x2)/(R + r*cos(x1))",
+          eqs: "x1' = x3\nx2' = x4\nx3' = sin(x1)/(R + r*cos(x1)) - 0.1*x3\nx4' = sin(x2)/(R + r*cos(x1)) - 0.1*x4",
           params: 'R=2\nr=0.5',
-          init: '0, 0, 0, 0',
+          init: 'pi/4, pi/4, 0, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '20000',
           transient: '0',
         },
         'Gradient Flow — Morse Potential 3D': {
@@ -3490,7 +3820,7 @@
           params: '',
           init: '1, 0, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '20000',
           transient: '0',
         },
         'Gradient Flow — Neural Network Loss Surface 3D': {
@@ -3505,23 +3835,25 @@
           params: '',
           init: '1, 1, 1',
           dt: '0.01',
-          steps: '200000',
+          steps: '20000',
           transient: '0',
         },
         'Gradient Flow — Gaussian Mixture 3D': {
           // V = -ln(Σᵢ wᵢ e^(-|x-μᵢ|²))
           // Simplified: 2 Gaussians
+          // Gradient: ẋ = -∇V = 2*Σᵢ wᵢ*exp(-|x-μᵢ|²)*(x-μᵢ) / (Σᵢ wᵢ*exp(-|x-μᵢ|²) + eps)
+          // Using simplified form to avoid division by zero
           category: 'optimization',
           systemType: 'ode',
           dim: '3',
           projX: '1',
           projY: '2',
           projZ: '3',
-          eqs: "d1 = (x1-mu1x)^2 + (x2-mu1y)^2 + (x3-mu1z)^2\nd2 = (x1-mu2x)^2 + (x2-mu2y)^2 + (x3-mu2z)^2\nsum = w1*exp(-d1) + w2*exp(-d2)\nx1' = -2*(w1*exp(-d1)*(x1-mu1x) + w2*exp(-d2)*(x1-mu2x))/sum\nx2' = -2*(w1*exp(-d1)*(x2-mu1y) + w2*exp(-d2)*(x2-mu2y))/sum\nx3' = -2*(w1*exp(-d1)*(x3-mu1z) + w2*exp(-d2)*(x3-mu2z))/sum",
+          eqs: "x1' = -2*(w1*exp(-((x1-mu1x)^2 + (x2-mu1y)^2 + (x3-mu1z)^2))*(x1-mu1x) + w2*exp(-((x1-mu2x)^2 + (x2-mu2y)^2 + (x3-mu2z)^2))*(x1-mu2x))/(w1*exp(-((x1-mu1x)^2 + (x2-mu1y)^2 + (x3-mu1z)^2)) + w2*exp(-((x1-mu2x)^2 + (x2-mu2y)^2 + (x3-mu2z)^2)) + 1e-10)\nx2' = -2*(w1*exp(-((x1-mu1x)^2 + (x2-mu1y)^2 + (x3-mu1z)^2))*(x2-mu1y) + w2*exp(-((x1-mu2x)^2 + (x2-mu2y)^2 + (x3-mu2z)^2))*(x2-mu2y))/(w1*exp(-((x1-mu1x)^2 + (x2-mu1y)^2 + (x3-mu1z)^2)) + w2*exp(-((x1-mu2x)^2 + (x2-mu2y)^2 + (x3-mu2z)^2)) + 1e-10)\nx3' = -2*(w1*exp(-((x1-mu1x)^2 + (x2-mu1y)^2 + (x3-mu1z)^2))*(x3-mu1z) + w2*exp(-((x1-mu2x)^2 + (x2-mu2y)^2 + (x3-mu2z)^2))*(x3-mu2z))/(w1*exp(-((x1-mu1x)^2 + (x2-mu1y)^2 + (x3-mu1z)^2)) + w2*exp(-((x1-mu2x)^2 + (x2-mu2y)^2 + (x3-mu2z)^2)) + 1e-10)",
           params: 'w1=0.5\nw2=0.5\nmu1x=1\nmu1y=0\nmu1z=0\nmu2x=-1\nmu2y=0\nmu2z=0',
-          init: '0, 0, 0',
+          init: '0.5, 0, 0',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Gradient Flow — Allen-Cahn (Discretized 3D)': {
@@ -3537,7 +3869,7 @@
           params: 'alpha=0.1',
           init: '0.5, -0.5, 0.5',
           dt: '0.01',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — 3-state distribution (map)': {
@@ -3552,11 +3884,12 @@
           params: '',
           init: '1, 0, 0',
           dt: '1',
-          steps: '120000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — Brownian Motion 3D (Wiener Process)': {
           // dX_t^(i) = σ dW_t^(i), independent components
+          // Pure Brownian motion: drift = 0, only diffusion
           category: 'markov',
           systemType: 'sde',
           dim: '3',
@@ -3567,10 +3900,10 @@
           dy: '0',
           dz: '0',
           params: '',
-          init: '0, 0, 0',
+          init: '0.1, 0.1, 0.1',
           dt: '0.01',
           sigma: '0.5',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — Ornstein–Uhlenbeck 3D (mean-reverting)': {
@@ -3588,7 +3921,7 @@
           init: '1, 1, 1',
           dt: '0.01',
           sigma: '0.4',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — 3D Random Walk on Lattice': {
@@ -3602,9 +3935,9 @@
           projZ: '3',
           eqs: "x1 = x1 + 0.1*(x1 - x2)\nx2 = x2 + 0.1*(x2 - x3)\nx3 = x3 + 0.1*(x3 - x1)",
           params: '',
-          init: '0, 0, 0',
+          init: '1, 0.5, 0.2',
           dt: '1',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — Jump Process on Graph 3D': {
@@ -3620,7 +3953,7 @@
           params: '',
           init: '1, 0, 0',
           dt: '1',
-          steps: '120000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — Diffusion on Sphere (Spherical Brownian)': {
@@ -3638,7 +3971,7 @@
           init: '1, 0, 0',
           dt: '0.01',
           sigma: '0.2',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — Langevin Dynamics 3D (underdamped)': {
@@ -3657,7 +3990,7 @@
           init: '0, 0, 0, 1, 0, 0',
           dt: '0.01',
           sigma: '0.3',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — Metropolis–Hastings Chain 3D': {
@@ -3671,9 +4004,9 @@
           projZ: '3',
           eqs: "x1 = x1 + epsilon*(x2 - x1)\nx2 = x2 + epsilon*(x3 - x2)\nx3 = x3 + epsilon*(x1 - x3)",
           params: 'epsilon=0.1',
-          init: '0, 0, 0',
+          init: '1, 0.5, 0.2',
           dt: '1',
-          steps: '200000',
+          steps: '200',
           transient: '0',
         },
         'Markov — Hidden Markov Model 3D': {
@@ -3689,7 +4022,7 @@
           params: 'mu1x=1\nmu1y=0\nmu1z=0\nmu2x=0\nmu2y=1\nmu2z=0',
           init: '0, 0, 0, 0',
           dt: '1',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Markov — Continuous-time Jump in 3D Regions': {
@@ -3701,11 +4034,11 @@
           projX: '1',
           projY: '2',
           projZ: '3',
-          eqs: "x1 = x1 + (x4 > lambda) ? 0.1*(x2 - x1) : 0\nx2 = x2 + (x4 > lambda) ? 0.1*(x3 - x2) : 0\nx3 = x3 + (x4 > lambda) ? 0.1*(x1 - x3) : 0\nx4 = (x4 > lambda) ? 0 : (x4 + dt)",
+          eqs: "x1 = x1 + (x4 > lambda) ? 0.1*(x2 - x1) : 0\nx2 = x2 + (x4 > lambda) ? 0.1*(x3 - x2) : 0\nx3 = x3 + (x4 > lambda) ? 0.1*(x1 - x3) : 0\nx4 = (x4 > lambda) ? 0 : (x4 + 0.1)",
           params: 'lambda=5',
-          init: '0, 0, 0, 0',
+          init: '1, 0.5, 0.2, 0',
           dt: '0.1',
-          steps: '200000',
+          steps: '200',
           transient: '0',
         },
         'Markov — Stochastic Gradient Flow 3D': {
@@ -3723,7 +4056,7 @@
           init: '0.5, 0.5, 0.5',
           dt: '0.01',
           sigma: '0.25',
-          steps: '200000',
+          steps: '2000',
           transient: '0',
         },
         'Custom': {
@@ -4203,7 +4536,10 @@
         syncSystemTypeUI();
       });
 
+      let isLoadingInstanceSettings = false;
       ui.preset.addEventListener('change', () => {
+        // Skip preset loading when we're loading instance settings (to avoid overwriting instance values)
+        if (isLoadingInstanceSettings) return;
         setPreset(ui.preset.value);
         updatePresetButtons();
         // Remember last algebraic preset per mode
@@ -4324,8 +4660,22 @@
         const n = Math.max(1, parseIntStrict(ui.dim?.value ?? '3', 'Dimension N'));
         const out = new Float64Array(n);
         for (let i = 0; i < n; i++) {
-          const v = (i < parts.length) ? Number(parts[i]) : 0;
-          if (!Number.isFinite(v)) throw new Error('Initial values must be numbers.');
+          let v;
+          if (i < parts.length) {
+            const expr = parts[i];
+            // Try to evaluate as expression (supports pi, e, etc.)
+            try {
+              v = math.evaluate(expr, { pi: Math.PI, e: Math.E });
+            } catch (err) {
+              // Fallback to Number() for backward compatibility
+              v = Number(expr);
+            }
+          } else {
+            v = 0;
+          }
+          if (typeof v !== 'number' || !Number.isFinite(v)) {
+            throw new Error(`Initial value ${i + 1} is not a finite number (got: "${i < parts.length ? parts[i] : '0'}").`);
+          }
           out[i] = v;
         }
         return out;
@@ -4336,8 +4686,22 @@
         const dim = Math.max(1, n | 0);
         const out = new Float64Array(dim);
         for (let i = 0; i < dim; i++) {
-          const v = (i < parts.length) ? Number(parts[i]) : 0;
-          if (!Number.isFinite(v)) throw new Error('Initial values must be numbers.');
+          let v;
+          if (i < parts.length) {
+            const expr = parts[i];
+            // Try to evaluate as expression (supports pi, e, etc.)
+            try {
+              v = math.evaluate(expr, { pi: Math.PI, e: Math.E });
+            } catch (err) {
+              // Fallback to Number() for backward compatibility
+              v = Number(expr);
+            }
+          } else {
+            v = 0;
+          }
+          if (typeof v !== 'number' || !Number.isFinite(v)) {
+            throw new Error(`Initial value ${i + 1} is not a finite number (got: "${i < parts.length ? parts[i] : '0'}").`);
+          }
           out[i] = v;
         }
         return out;
@@ -4364,17 +4728,75 @@
             throw new Error(`Hybrid reset line ${i + 1}: unknown target "${lhs}" (use x1..x${dim}).`);
           }
           targets.push(idx);
-          exprs.push(math.compile(rhs));
+          // Compile with mathjs - it supports ternary operators and comparison operators
+          try {
+            exprs.push(math.compile(rhs));
+          } catch (err) {
+            throw new Error(`Hybrid reset line ${i + 1}: failed to compile expression "${rhs}": ${err.message}`);
+          }
         }
         if (!targets.length) throw new Error('Hybrid reset rules must not be empty.');
         return { targets, exprs };
+      }
+
+      function compileHybridEventCondition(text) {
+        let expr = String(text || '').trim();
+        if (!expr) throw new Error('Event condition must not be empty.');
+        
+        // Try to compile as-is first (mathjs 11+ might support && and ||)
+        try {
+          return math.compile(expr);
+        } catch (err) {
+          // If compilation fails, add logical operator functions and transform
+          try {
+            // Add and/or functions to math if not already present
+            if (typeof math.and === 'undefined' || typeof math.or === 'undefined') {
+              math.import({
+                'and': function(a, b) { 
+                  // Convert to boolean: non-zero is true
+                  const va = (typeof a === 'boolean' ? a : (typeof a === 'number' ? a !== 0 : !!a));
+                  const vb = (typeof b === 'boolean' ? b : (typeof b === 'number' ? b !== 0 : !!b));
+                  return va && vb;
+                },
+                'or': function(a, b) { 
+                  const va = (typeof a === 'boolean' ? a : (typeof a === 'number' ? a !== 0 : !!a));
+                  const vb = (typeof b === 'boolean' ? b : (typeof b === 'number' ? b !== 0 : !!b));
+                  return va || vb;
+                }
+              }, { override: true });
+            }
+            
+            // Transform && and || to function calls (handle precedence: && before ||)
+            let transformed = expr;
+            const orParts = transformed.split(/\s*\|\|\s*/);
+            if (orParts.length > 1) {
+              // Process each OR part separately for && operations
+              const processedParts = orParts.map(part => part.replace(/\s*&&\s*/g, ' and '));
+              transformed = processedParts.join(' or ');
+            } else {
+              transformed = transformed.replace(/\s*&&\s*/g, ' and ');
+            }
+            
+            // Now compile the transformed expression
+            return math.compile(transformed);
+          } catch (err2) {
+            // If transformation also fails, throw original error with helpful message
+            throw new Error(`Hybrid event condition compilation failed: ${err.message}`);
+          }
+        }
       }
 
       function evalBoolExpr(compiledExpr, tValue, stateArr, dim) {
         fillScopeFromArray(tValue, stateArr, dim);
         const s = runtime.scope;
         let v;
-        try { v = compiledExpr.evaluate(s); } catch (_) { return null; }
+        try { 
+          v = compiledExpr.evaluate(s); 
+        } catch (err) { 
+          // Log error for debugging but return null to indicate failure
+          console.warn('Hybrid event evaluation error:', err);
+          return null; 
+        }
         if (typeof v === 'boolean') return v;
         if (typeof v === 'number') return Number.isFinite(v) ? (v !== 0) : null;
         return null;
@@ -4444,7 +4866,15 @@
         fillScopeFromArray(runtime.t, stateArr, dim);
         for (let i = 0; i < targets.length; i++) {
           let v;
-          try { v = exprs[i].evaluate(runtime.scope); } catch (_) { return false; }
+          try { 
+            v = exprs[i].evaluate(runtime.scope); 
+          } catch (err) { 
+            // Log error for debugging but return false to indicate failure
+            console.warn('Hybrid reset evaluation error:', err);
+            return false; 
+          }
+          // Handle boolean results from ternary operators
+          if (typeof v === 'boolean') v = v ? 1 : 0;
           if (!isFiniteNumber(v)) return false;
           stateArr[targets[i]] = v;
         }
@@ -4650,9 +5080,16 @@
 
       function loadInstanceSettingsToUI(settings) {
         if (!settings) return;
-        if (settings.systemType != null && ui.systemType) ui.systemType.value = String(settings.systemType);
-        if (settings.preset != null && ui.preset) ui.preset.value = String(settings.preset);
-        if (settings.dim != null && ui.dim) ui.dim.value = String(settings.dim);
+        isLoadingInstanceSettings = true; // Prevent preset change handler from running
+        try {
+          // Set systemType first (this will trigger preset dropdown rebuild)
+          if (settings.systemType != null && ui.systemType) {
+            ui.systemType.value = String(settings.systemType);
+            // Trigger change to rebuild preset dropdown
+            ui.systemType.dispatchEvent(new Event('change'));
+          }
+          // Load all instance-specific settings
+          if (settings.dim != null && ui.dim) ui.dim.value = String(settings.dim);
         if (settings.dimAuto != null && ui.dimAuto) ui.dimAuto.checked = !!settings.dimAuto;
         if (settings.projX != null && ui.projX) ui.projX.value = String(settings.projX);
         if (settings.projY != null && ui.projY) ui.projY.value = String(settings.projY);
@@ -4708,13 +5145,19 @@
         if (settings.algXMax != null && ui.algXMax) ui.algXMax.value = String(settings.algXMax);
         if (settings.algYMin != null && ui.algYMin) ui.algYMin.value = String(settings.algYMin);
         if (settings.algYMax != null && ui.algYMax) ui.algYMax.value = String(settings.algYMax);
-        if (settings.algZMin != null && ui.algZMin) ui.algZMin.value = String(settings.algZMin);
-        if (settings.algZMax != null && ui.algZMax) ui.algZMax.value = String(settings.algZMax);
-        // Trigger UI updates
-        if (ui.systemType) ui.systemType.dispatchEvent(new Event('change'));
-        if (ui.daeIndex && typeof updateDaeIndexHint === 'function') {
-          updateDaeIndexHint();
-          if (typeof updateDaeGLabel === 'function') updateDaeGLabel();
+          if (settings.algZMin != null && ui.algZMin) ui.algZMin.value = String(settings.algZMin);
+          if (settings.algZMax != null && ui.algZMax) ui.algZMax.value = String(settings.algZMax);
+          // Set preset value LAST (without triggering change event due to flag)
+          if (settings.preset != null && ui.preset) {
+            ui.preset.value = String(settings.preset);
+          }
+          // Trigger UI updates
+          if (ui.daeIndex && typeof updateDaeIndexHint === 'function') {
+            updateDaeIndexHint();
+            if (typeof updateDaeGLabel === 'function') updateDaeGLabel();
+          }
+        } finally {
+          isLoadingInstanceSettings = false; // Re-enable preset change handler
         }
       }
 
@@ -4999,7 +5442,20 @@
         count: 0,
         positions: null,
         colors: null,
-        scope: { x: 0, y: 0, z: 0, t: 0, pi: Math.PI, e: Math.E },
+        scope: { 
+          x: 0, y: 0, z: 0, t: 0, pi: Math.PI, e: Math.E,
+          // MathJS functions
+          abs: Math.abs, sin: Math.sin, cos: Math.cos, tan: Math.tan,
+          asin: Math.asin, acos: Math.acos, atan: Math.atan, atan2: Math.atan2,
+          sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+          exp: Math.exp, log: Math.log, log10: Math.log10, log2: Math.log2,
+          sqrt: Math.sqrt, cbrt: Math.cbrt, pow: Math.pow,
+          floor: Math.floor, ceil: Math.ceil, round: Math.round,
+          min: Math.min, max: Math.max, sign: Math.sign,
+          // MathJS comparison functions
+          equal: (a, b) => a == b,
+          unequal: (a, b) => a != b,
+        },
         // PDE runtime (only when systemType==='pde')
         pde: {
           type: 'heat2d',
@@ -5448,31 +5904,12 @@
         s.x = n >= 1 ? (arr[0] ?? 0) : 0;
         s.y = n >= 2 ? (arr[1] ?? 0) : 0;
         s.z = n >= 3 ? (arr[2] ?? 0) : 0;
-      }
-
-      function evalExpr3(out3, x, y, z, t) {
-        const s = runtime.scope;
-        s.x = x; s.y = y; s.z = z; s.t = t;
-        // inject params into scope (flat)
-        for (const [k, v] of Object.entries(runtime.params)) s[k] = v;
-        let a, b, c;
-        try {
-          // Keep legacy path for 3-field mode only
-          a = runtime.compiled.compiled[0].evaluate(s);
-          b = runtime.compiled.compiled[1].evaluate(s);
-          c = runtime.compiled.compiled[2].evaluate(s);
-        } catch (_) {
-          runtime.skippedDerivs++;
-          out3[0] = out3[1] = out3[2] = 0;
-          return false;
-        }
-        if (!isFiniteNumber(a) || !isFiniteNumber(b) || !isFiniteNumber(c)) {
-          runtime.skippedDerivs++;
-          out3[0] = out3[1] = out3[2] = 0;
-          return false;
-        }
-        out3[0] = a; out3[1] = b; out3[2] = c;
-        return true;
+        // Ensure math functions are available (they might be overwritten)
+        if (!s.abs) s.abs = Math.abs;
+        if (!s.sin) s.sin = Math.sin;
+        if (!s.cos) s.cos = Math.cos;
+        if (!s.sqrt) s.sqrt = Math.sqrt;
+        if (!s.equal) s.equal = (a, b) => a == b;
       }
 
       function evalVec(out, tValue) {
@@ -5873,7 +6310,7 @@
             return;
           }
           if (runtime.systemType === 'hybrid') {
-            // Hybrid solver - simplified version for instances
+            // Hybrid solver for instances
             if (!runtime.compiled || !runtime.hybrid.cond) {
               runtime = savedRuntime;
               return;
@@ -5888,9 +6325,22 @@
                 runtime.running = false;
                 break;
               }
-              // Simplified: skip hybrid event detection for instances (complex)
-              runtime.running = false; // Disable for now
-              break;
+              const ok = stepHybridOnce();
+              runtime.stepIndex++;
+              if (!ok) {
+                runtime.running = false;
+                break;
+              }
+              if (runtime.stepIndex <= transient) continue;
+              if (!appendPointFromInstanceState(inst)) continue;
+              wrote++;
+            }
+
+            if (wrote > 0 && inst.render) {
+              inst.render.geometry.setDrawRange(0, runtime.count);
+              inst.render.geometry.attributes.position.needsUpdate = true;
+              inst.render.geometry.attributes.color.needsUpdate = true;
+              inst.render.geometry.computeBoundingSphere();
             }
             runtime = savedRuntime;
             return;
@@ -6549,7 +6999,7 @@
         }
       }
 
-      function startSimulation() {
+      function startSimulation(skipSaveSettings = false) {
         try {
           showError('');
           
@@ -6560,19 +7010,21 @@
             setActiveInstance(newInst.id);
           }
           
-          // Save current UI settings to active instance (if any)
-          if (activeInstanceId != null) {
-            const activeInst = instances.find(i => i.id === activeInstanceId);
-            if (activeInst) {
-              activeInst.settings = getInstanceSettingsFromUI();
+          // Save current UI settings to active instance (if any) - skip in sync mode
+          if (!skipSaveSettings) {
+            if (activeInstanceId != null) {
+              const activeInst = instances.find(i => i.id === activeInstanceId);
+              if (activeInst) {
+                activeInst.settings = getInstanceSettingsFromUI();
+              }
+            } else {
+              // No active instance: create new one from current UI settings
+              const settings = getInstanceSettingsFromUI();
+              const newInst = createInstance(null, null, settings);
+              setActiveInstance(newInst.id);
+              // Note: setActiveInstance() already loads settings to UI, but since we just created
+              // the instance with the current UI settings, they're already in sync
             }
-          } else {
-            // No active instance: create new one from current UI settings
-            const settings = getInstanceSettingsFromUI();
-            const newInst = createInstance(null, null, settings);
-            setActiveInstance(newInst.id);
-            // Note: setActiveInstance() already loads settings to UI, but since we just created
-            // the instance with the current UI settings, they're already in sync
           }
           
           // If we previously built an implicit surface, dispose it when starting other modes.
@@ -6612,7 +7064,7 @@
 
             const condText = String(ui.hybridEvent?.value || '').trim();
             if (!condText) throw new Error('Hybrid: event condition must not be empty.');
-            const cond = math.compile(condText);
+            const cond = compileHybridEventCondition(condText);
             const rr = parseHybridResetRules(ui.hybridReset?.value || '', compiled.n);
 
             runtime.systemType = 'hybrid';
@@ -6853,14 +7305,12 @@
             const scope = { ...(params || {}), pi: Math.PI, e: Math.E, t: 0, x: xmin, y: ymin, z: zmin };
             const v = f.evaluate(scope);
             if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error('F(x,y,z) did not evaluate to a finite number (check params).');
-            void iso;
             showNotice('OK: algebraic implicit surface compiled successfully.');
             return;
           }
 
           if (systemType === 'pde') {
             // basic PDE validation
-            compilePdeLinearSettings();
             parseParams(ui.params.value);
             const dt = parseFloatStrict(ui.dt.value, 'dt');
             const steps = parseIntStrict(ui.steps.value, 'steps');
@@ -6895,7 +7345,7 @@
             if (!(ppf > 0)) throw new Error('Points/frame must be > 0.');
             const condText = String(ui.hybridEvent?.value || '').trim();
             if (!condText) throw new Error('Hybrid: event condition must not be empty.');
-            math.compile(condText);
+            compileHybridEventCondition(condText);
             parseHybridResetRules(ui.hybridReset?.value || '', parseIntStrict(ui.dim?.value ?? '2', 'Dimension N'));
             showNotice('OK: Hybrid inputs compiled successfully.');
             return;
@@ -6962,46 +7412,203 @@
         }
       }
 
-      // ---- Buttons ----
-      ui.start.addEventListener('click', () => {
-        // Start simulation for active instance (or create new if none)
-        startSimulation();
-      });
-      ui.validate?.addEventListener('click', () => {
-        // Validate active instance settings (save current UI first)
+      // ---- Helper functions for syncing all instances ----
+      function startAllInstances() {
+        // Start each instance with its own settings (don't change any parameters)
+        const savedActiveId = activeInstanceId;
+        const savedUI = getInstanceSettingsFromUI(); // Save current UI state
+        
+        // First, save current UI to active instance if any (to preserve any changes made before starting)
         if (activeInstanceId != null) {
           const activeInst = instances.find(i => i.id === activeInstanceId);
           if (activeInst) {
             activeInst.settings = getInstanceSettingsFromUI();
+          }
+        }
+        
+        for (const inst of instances) {
+          activeInstanceId = inst.id;
+          // Load the instance's own settings to UI (create a copy to avoid reference issues)
+          if (inst.settings) {
+            // Create a shallow copy of settings object to avoid reference sharing
+            const instSettings = { ...inst.settings };
+            loadInstanceSettingsToUI(instSettings);
+          } else {
+            // If instance has no settings, use current UI (shouldn't happen, but handle gracefully)
+            loadInstanceSettingsToUI(getInstanceSettingsFromUI());
+          }
+          try {
+            startSimulation(true); // Skip saving settings - use instance's own settings
+          } catch (err) {
+            console.warn(`Failed to start instance ${inst.id}:`, err);
+          }
+        }
+        // Restore active instance UI and activeInstanceId
+        activeInstanceId = savedActiveId;
+        if (activeInstanceId != null) {
+          const activeInst = instances.find(i => i.id === activeInstanceId);
+          if (activeInst && activeInst.settings) {
             loadInstanceSettingsToUI(activeInst.settings);
           }
+        } else {
+          // Restore saved UI if no active instance
+          loadInstanceSettingsToUI(savedUI);
         }
-        validateSimulation();
-      });
-      ui.pause.addEventListener('click', () => {
-        // Pause active instance
-        if (activeInstanceId != null) {
-          const activeInst = instances.find(i => i.id === activeInstanceId);
-          if (activeInst && activeInst.runtime) {
-            activeInst.runtime.running = false;
+      }
+
+      function validateAllInstances() {
+        // Validate each instance with its own settings (don't change any parameters)
+        const savedActiveId = activeInstanceId;
+        const savedUI = getInstanceSettingsFromUI(); // Save current UI state
+        let allValid = true;
+        for (const inst of instances) {
+          activeInstanceId = inst.id;
+          loadInstanceSettingsToUI(inst.settings);
+          try {
+            validateSimulation();
+          } catch (err) {
+            console.warn(`Instance ${inst.id} validation failed:`, err);
+            allValid = false;
           }
         }
-        runtime.running = false;
-      });
-      ui.reset.addEventListener('click', () => {
-        // Reset active instance runtime (but keep settings)
+        // Restore active instance UI and activeInstanceId
+        activeInstanceId = savedActiveId;
         if (activeInstanceId != null) {
           const activeInst = instances.find(i => i.id === activeInstanceId);
-          if (activeInst && activeInst.runtime) {
-            activeInst.runtime.running = false;
-            activeInst.runtime.count = 0;
-            if (activeInst.render) {
-              activeInst.render.geometry.setDrawRange(0, 0);
+          if (activeInst && activeInst.settings) {
+            loadInstanceSettingsToUI(activeInst.settings);
+          }
+        } else {
+          // Restore saved UI if no active instance
+          loadInstanceSettingsToUI(savedUI);
+        }
+        if (allValid) {
+          showNotice('OK: All instances validated successfully.');
+        }
+      }
+
+      function pauseAllInstances() {
+        // Pause all instances
+        for (const inst of instances) {
+          if (inst.runtime) {
+            inst.runtime.running = false;
+          }
+        }
+        setRunning(false); // Update button text
+      }
+
+      function resumeAllInstances() {
+        // Resume all instances (just set running to true, don't restart)
+        for (const inst of instances) {
+          if (inst.runtime) {
+            inst.runtime.running = true;
+          }
+        }
+        setRunning(true); // Update button text
+      }
+
+      function resetAllInstances() {
+        // Reset all instances
+        for (const inst of instances) {
+          if (inst.runtime) {
+            inst.runtime.running = false;
+            inst.runtime.count = 0;
+            if (inst.render) {
+              inst.render.geometry.setDrawRange(0, 0);
             }
-            activeInst.runtime = null;
+            inst.runtime = null;
           }
         }
         resetSimulation();
+      }
+
+      // ---- Buttons ----
+      ui.start.addEventListener('click', () => {
+        const syncAll = ui.syncInstances?.checked || false;
+        if (syncAll && instances.length > 0) {
+          startAllInstances();
+        } else {
+          // Start simulation for active instance (or create new if none)
+          startSimulation();
+        }
+      });
+      ui.validate?.addEventListener('click', () => {
+        const syncAll = ui.syncInstances?.checked || false;
+        if (syncAll && instances.length > 0) {
+          validateAllInstances();
+        } else {
+          // Validate active instance settings (save current UI first)
+          if (activeInstanceId != null) {
+            const activeInst = instances.find(i => i.id === activeInstanceId);
+            if (activeInst) {
+              activeInst.settings = getInstanceSettingsFromUI();
+              loadInstanceSettingsToUI(activeInst.settings);
+            }
+          }
+          validateSimulation();
+        }
+      });
+      ui.pause.addEventListener('click', () => {
+        const syncAll = ui.syncInstances?.checked || false;
+        if (syncAll && instances.length > 0) {
+          // Toggle pause/resume for all instances
+          const anyRunning = instances.some(inst => inst.runtime && inst.runtime.running) || runtime.running;
+          if (anyRunning) {
+            pauseAllInstances();
+          } else {
+            resumeAllInstances();
+          }
+        } else {
+          // Pause/resume active instance
+          if (activeInstanceId != null) {
+            const activeInst = instances.find(i => i.id === activeInstanceId);
+            if (activeInst && activeInst.runtime) {
+              if (activeInst.runtime.running) {
+                // Pause
+                activeInst.runtime.running = false;
+                setRunning(false);
+              } else {
+                // Resume: just set running to true, don't restart
+                activeInst.runtime.running = true;
+                setRunning(true);
+              }
+            } else if (runtime.running) {
+              // Pause
+              setRunning(false);
+            } else {
+              // Resume: just set running to true, don't restart
+              setRunning(true);
+            }
+          } else {
+            if (runtime.running) {
+              // Pause
+              setRunning(false);
+            } else {
+              // Resume: just set running to true, don't restart
+              setRunning(true);
+            }
+          }
+        }
+      });
+      ui.reset.addEventListener('click', () => {
+        const syncAll = ui.syncInstances?.checked || false;
+        if (syncAll && instances.length > 0) {
+          resetAllInstances();
+        } else {
+          // Reset active instance runtime (but keep settings)
+          if (activeInstanceId != null) {
+            const activeInst = instances.find(i => i.id === activeInstanceId);
+            if (activeInst && activeInst.runtime) {
+              activeInst.runtime.running = false;
+              activeInst.runtime.count = 0;
+              if (activeInst.render) {
+                activeInst.render.geometry.setDrawRange(0, 0);
+              }
+              activeInst.runtime = null;
+            }
+          }
+          resetSimulation();
+        }
       });
       if (ui.addInstance) {
         ui.addInstance.addEventListener('click', () => {
@@ -7391,6 +7998,15 @@
       }, 1000);
     })();
   </script>
+
+  <!-- Help Modal -->
+  <div id="help-modal">
+    <div id="help-modal-content">
+      <button id="help-modal-close" title="Close">×</button>
+      <div id="help-modal-title"></div>
+      <div id="help-modal-body"></div>
+    </div>
+  </div>
 </body>
 </html>
 
