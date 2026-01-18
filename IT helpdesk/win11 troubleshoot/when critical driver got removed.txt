@@ -1,0 +1,22 @@
+Critical drivers:
+- Storage drivers: storahci.sys, iaStor.sys, NVMe
+- File system drivers: ntfs.sys
+- Boot-critical HAL / ACPI
+- Drivers marked BOOT_START in registry
+
+Observable symptoms:
+- Boot fail (Windows Boot Manager loads -> Kernel starts loading boot-start drivers -> fail)
+- BSOD:INACCESSIBLE_BOOT_DEVICE
+- Automatic Repair loop → fails
+- Error 0xc000000e
+- “Your PC needs to be repaired”
+- Endless reboot
+
+Reason: The OS kernel cannot Mount the system disk, Read C:\Windows Therefore execution stops.
+
+Windows can't self-repair. 
+
+Solutions:
+- Boot from Windows ISO → Repair → Command Prompt: copy C:\Windows\System32\DriverStore\FileRepository\*\<removed driver> C:\Windows\System32\drivers\
+- If start type wrong: Boot from Windows ISO → Repair → Command Prompt: reg load HKLM\temp C:\Windows\System32\Config\SYSTEM; cd HKLM\temp\ControlSet001\Services\storahci; Start = 0; reg unload HKLM\temp
+- Mount disk on another machine -> Backup user data -> Reinstall Windows

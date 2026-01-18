@@ -1,0 +1,16 @@
+Symptoms:
+- Boot error: “Boot configuration data is missing”
+- Boot error: “0xc000000f”
+
+Solutions:
+- Boot from Windows installation ISO -> Repair -> Troubleshoot → Advanced options → Command Prompt:
+bootrec /fixmbr
+bootrec /fixboot
+bootrec /scanos
+bootrec /rebuildbcd
+
+- If /fixboot denied: bootsect /nt60 sys
+- If /rebuildbcd not detected: bcdboot C:\Windows /s S: /f UEFI
+- If above fail: diskpart; sel disk 0; sel vol 1; assign letter s; exit
+
+Not have CMD option at advance startup: reagent /enable

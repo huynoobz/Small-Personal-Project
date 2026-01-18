@@ -1,0 +1,36 @@
+Safe Mode: Loads minimal drivers (keyboard, mouse, basic display)
+Skips:
+- Third-party drivers
+- Startup programs
+- Non-essential services
+- Uses a generic VGA display driver
+- This allows Windows to boot even when normal mode fails.
+When used:
+- New driver causes BSOD
+- Display goes black after GPU driver update
+- Network / audio driver breaks system
+- System restarts after sign-in
+- Explorer crashes immediately
+- Prevent Malware services from starting
+- Prevent Malware Self-protection mechanisms
+- Need roll back Registry changes
+- Need roll back Group Policy changes
+- Need roll back Windows Update issues
+- Used beneath cmd without interference.
+
+DISM /Online /Cleanup-Image /RestoreHealth: repairs the component store.
+sfc /scannow: verify and repair corrupted Windows system files using the component store.
+Used when see:
+- Random crashes or freezes
+- Windows features not working
+- System apps failing to open
+- Errors after malware removal
+- Unexpected behavior after updates
+
+The component store: C:\Windows\WinSxS
+
+sfc /scannow /offbootdir=C:\ /offwindir=C:\Windows
+Used when:
+- Windows partially broken
+- System won’t start normally
+
