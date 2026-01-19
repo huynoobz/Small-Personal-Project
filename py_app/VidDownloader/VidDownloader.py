@@ -118,11 +118,13 @@ def download_video(url, resolution):
     if resolution == "best":
         # Download best available quality
         # Prefer AAC audio, but will convert to AAC via postprocessor if needed
-        format_string = "bestvideo+bestaudio[acodec^=mp4a]/bestvideo+bestaudio/best"
+        # More flexible format selector with fallbacks for sites like Facebook
+        format_string = "bestvideo+bestaudio[acodec^=mp4a]/bestvideo+bestaudio/bestvideo+bestaudio/best"
         outtmpl_suffix = "best"
     else:
         # Download specific resolution
-        format_string = f"bestvideo[height<={resolution}]+bestaudio[acodec^=mp4a]/bestvideo[height<={resolution}]+bestaudio/best[height<={resolution}]"
+        # More flexible format selector with multiple fallbacks
+        format_string = f"bestvideo[height<={resolution}]+bestaudio[acodec^=mp4a]/bestvideo[height<={resolution}]+bestaudio/bestvideo[height<={resolution}]+bestaudio/best[height<={resolution}]/best"
         outtmpl_suffix = str(resolution)
     
     ydl_opts = {
@@ -151,13 +153,32 @@ def download_video(url, resolution):
             ydl.download([url])
         print(f"\nDownload complete! File saved as: %(title)s_video_{outtmpl_suffix}.mp4")
     except Exception as e:
-        if "ffmpeg" in str(e).lower() or "merge" in str(e).lower() or "codec" in str(e).lower():
+        error_str = str(e).lower()
+        if "requested format is not available" in error_str or "format is not available" in error_str:
+            # Try with a simpler format selector as fallback
+            print("\nFormat not available with preferred settings. Trying simpler format selector...")
+            if resolution == "best":
+                fallback_format = "best"
+            else:
+                fallback_format = f"best[height<={resolution}]/best"
+            
+            ydl_opts["format"] = fallback_format
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.add_post_processor(FFmpegAudioToAACPP(ydl), when='post_process')
+                    ydl.download([url])
+                print(f"\nDownload complete! File saved as: %(title)s_video_{outtmpl_suffix}.mp4")
+            except Exception as e2:
+                print(f"\nError during download: {e2}")
+                raise
+        elif "ffmpeg" in error_str or "merge" in error_str or "codec" in error_str:
             print(f"\nError: FFmpeg is required to merge video and audio streams.")
             print(f"Please ensure ffmpeg.exe is in ffmpeg/bin/ directory or in PATH.")
             print(f"Original error: {e}")
+            raise
         else:
             print(f"\nError during download: {e}")
-        raise
+            raise
 
 
 def download_audio(url, bitrate):
@@ -220,7 +241,7 @@ def download_audio(url, bitrate):
 
 
 def main():
-    url = input("Enter YouTube URL: ").strip()
+    url = input("Enter Video URL (YT, FB,...): ").strip()
     
     # Convert youtu.be short URLs to full YouTube URLs
     url = convert_youtube_url(url)

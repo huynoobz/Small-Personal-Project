@@ -9,12 +9,12 @@ import sys
 
 # Get the directory where this script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
-main_script = os.path.join(script_dir, "YTDownloader.py")
+main_script = os.path.join(script_dir, "VidDownloader.py")
 
 # PyInstaller arguments
 args = [
     main_script,
-    "--name=YTDownloader",
+    "--name=VidDownloader",
     "--onefile",  # Create a single executable file
     "--console",  # Keep console window (since it uses input())
     "--clean",    # Clean PyInstaller cache before building
@@ -37,7 +37,7 @@ try:
     PyInstaller.__main__.run(args)
     print("\n" + "="*50)
     print("Build completed successfully!")
-    print(f"Executable location: {os.path.join(script_dir, 'dist', 'YTDownloader.exe')}")
+    print(f"Executable location: {os.path.join(script_dir, 'dist', 'VidDownloader.exe')}")
     print("\nNote: FFmpeg is required for audio extraction.")
     print("Users will need to have FFmpeg installed or you can bundle it separately.")
 except Exception as e:

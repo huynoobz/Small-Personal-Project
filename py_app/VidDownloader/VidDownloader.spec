@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['C:\\Users\\ASUS\\Documents\\Small-Personal-Project\\py_app\\YTDownloader\\YTDownloader.py'],
+    ['C:\\Users\\ASUS\\Documents\\Small-Personal-Project\\py_app\\VidDownloader\\VidDownloader.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='YTDownloader',
+    name='VidDownloader',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
