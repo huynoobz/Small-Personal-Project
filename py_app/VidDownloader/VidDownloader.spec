@@ -1,4 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_submodules
+
+hiddenimports = ['yt_dlp', 'yt_dlp.extractor', 'yt_dlp.downloader', 'yt_dlp.postprocessor', 'yt_dlp.postprocessor.ffmpeg', 'PIL', 'PIL.Image', 'PIL.ImageTk', 'selenium', 'selenium.webdriver']
+hiddenimports += collect_submodules('yt_dlp')
+hiddenimports += collect_submodules('PIL')
+hiddenimports += collect_submodules('selenium')
 
 
 a = Analysis(
@@ -6,7 +12,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['yt_dlp', 'yt_dlp.extractor', 'yt_dlp.downloader'],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -29,7 +35,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
