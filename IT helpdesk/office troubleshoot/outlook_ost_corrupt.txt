@@ -1,0 +1,3 @@
+Offline Storage Table
+C:\Users\<username>\AppData\Local\Microsoft\Outlook\
+Remove .ost file

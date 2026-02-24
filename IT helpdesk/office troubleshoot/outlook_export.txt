@@ -1,0 +1,2 @@
+export as pst, if csv when import will got font error
+pst may can be read but can still import
