@@ -14,8 +14,11 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
+import android.util.Base64
 import android.util.Log
 import android.webkit.MimeTypeMap
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,6 +29,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +74,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,9 +82,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.readalldocs.ui.theme.ReadAllDocsTheme
 import java.io.File
@@ -343,17 +354,19 @@ private fun TextReader(uri: Uri) {
     when {
         errorText != null -> ErrorCard(message = errorText!!, uri = uri)
         textContent == null -> LoadingIndicator("Loading text...")
-        else -> DocumentSurface {
-            SelectionContainer {
-                Text(
-                    text = textContent!!,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 24.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
-                )
+        else -> ZoomableBox(modifier = Modifier.fillMaxSize()) {
+            DocumentSurface {
+                SelectionContainer {
+                    Text(
+                        text = textContent!!,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp, vertical = 24.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
+                    )
+                }
             }
         }
     }
@@ -389,14 +402,16 @@ private fun ImageReader(uri: Uri) {
         errorText != null -> ErrorCard(message = errorText!!, uri = uri)
         bitmap == null -> LoadingIndicator("Loading image...")
         else -> Box(modifier = Modifier.fillMaxSize()) {
-            Image(
-                bitmap = bitmap!!.asImageBitmap(),
-                contentDescription = "Selected image",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp),
-                contentScale = ContentScale.Fit
-            )
+            ZoomableBox(modifier = Modifier.fillMaxSize()) {
+                Image(
+                    bitmap = bitmap!!.asImageBitmap(),
+                    contentDescription = "Selected image",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -458,18 +473,20 @@ private fun PdfReader(uri: Uri) {
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(pageCount, key = { it }) { pageIndex ->
-                        PdfPageItem(
-                            rendererHolder = rendererHolder,
-                            uri = uri,
-                            pageIndex = pageIndex
-                        )
+                ZoomableBox(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(pageCount, key = { it }) { pageIndex ->
+                            PdfPageItem(
+                                rendererHolder = rendererHolder,
+                                uri = uri,
+                                pageIndex = pageIndex
+                            )
+                        }
                     }
                 }
 
@@ -586,14 +603,13 @@ private fun PdfPageItem(
 @Composable
 private fun OfficeReader(uri: Uri) {
     val context = LocalContext.current
-    var content by remember(uri) { mutableStateOf<String?>(null) }
+    var htmlContent by remember(uri) { mutableStateOf<String?>(null) }
     var errorText by remember(uri) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uri) {
         runCatching {
-            val extracted = extractOfficeText(context, uri)
-            if (extracted.isBlank()) "No readable text found in this document." else extracted
-        }.onSuccess { content = it; errorText = null }
+            extractOfficeHtml(context, uri)
+        }.onSuccess { htmlContent = it; errorText = null }
             .onFailure {
                 Log.e(TAG, "Office parse failure uri=$uri message=${it.message}", it)
                 errorText = it.message ?: "Unknown error"
@@ -602,20 +618,26 @@ private fun OfficeReader(uri: Uri) {
 
     when {
         errorText != null -> ErrorCard(message = "Cannot render this Office file: $errorText", uri = uri)
-        content == null -> LoadingIndicator("Reading document...")
-        else -> DocumentSurface {
-            SelectionContainer {
-                Text(
-                    text = content!!,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 24.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
+        htmlContent == null -> LoadingIndicator("Reading document...")
+        else -> AndroidView(
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    webViewClient = WebViewClient()
+                    settings.builtInZoomControls = true
+                    settings.displayZoomControls = false
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    settings.javaScriptEnabled = false
+                    setBackgroundColor(android.graphics.Color.WHITE)
+                }
+            },
+            update = { webView ->
+                webView.loadDataWithBaseURL(
+                    null, htmlContent!!, "text/html", "UTF-8", null
                 )
-            }
-        }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 
@@ -644,6 +666,58 @@ private fun DocumentSurface(content: @Composable () -> Unit) {
             shape = RoundedCornerShape(8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            content()
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared UI: pinch-to-zoom container
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ZoomableBox(
+    modifier: Modifier = Modifier,
+    minScale: Float = 1f,
+    maxScale: Float = 5f,
+    content: @Composable () -> Unit
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+
+    Box(
+        modifier = modifier
+            .onSizeChanged { containerSize = it }
+            .pointerInput(Unit) {
+                detectTransformGestures { _, pan, zoom, _ ->
+                    val newScale = (scale * zoom).coerceIn(minScale, maxScale)
+                    val maxX = (containerSize.width * (newScale - 1)) / 2f
+                    val maxY = (containerSize.height * (newScale - 1)) / 2f
+                    scale = newScale
+                    offsetX = (offsetX + pan.x * newScale).coerceIn(-maxX, maxX)
+                    offsetY = (offsetY + pan.y * newScale).coerceIn(-maxY, maxY)
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(onDoubleTap = {
+                    scale = 1f
+                    offsetX = 0f
+                    offsetY = 0f
+                })
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    translationX = offsetX,
+                    translationY = offsetY
+                )
         ) {
             content()
         }
@@ -684,10 +758,10 @@ private fun detectType(context: Context, uri: Uri): DocumentType {
 }
 
 // ---------------------------------------------------------------------------
-// OOXML formats: direct ZIP + XML parsing
+// Office HTML extraction: router
 // ---------------------------------------------------------------------------
 
-private fun extractOfficeText(context: Context, uri: Uri): String {
+private fun extractOfficeHtml(context: Context, uri: Uri): String {
     val extension = queryDisplayName(context, uri)
         ?.substringAfterLast('.', missingDelimiterValue = "")
         ?.lowercase(Locale.US)
@@ -695,66 +769,134 @@ private fun extractOfficeText(context: Context, uri: Uri): String {
     val mimeType = context.contentResolver.getType(uri)?.lowercase(Locale.US).orEmpty()
     return context.contentResolver.openInputStream(uri)?.use { input ->
         when {
-            extension == "docx" || mimeType.contains("wordprocessingml") -> extractDocxText(input)
-            extension == "doc" || mimeType.contains("msword") -> extractDocText(input)
-            extension == "xlsx" || mimeType.contains("spreadsheetml") -> extractXlsxText(input)
-            extension == "xls" || mimeType.contains("ms-excel") -> extractXlsText(input)
-            extension == "pptx" || mimeType.contains("presentationml") -> extractPptxText(input)
-            extension == "ppt" || mimeType.contains("ms-powerpoint") -> extractPptText(input)
+            extension == "docx" || mimeType.contains("wordprocessingml") -> extractDocxHtml(input)
+            extension == "xlsx" || mimeType.contains("spreadsheetml") -> extractXlsxHtml(input)
+            extension == "pptx" || mimeType.contains("presentationml") -> extractPptxHtml(input)
+            extension == "doc" || mimeType.contains("msword") ->
+                wrapPlainTextHtml(extractDocText(input))
+            extension == "xls" || mimeType.contains("ms-excel") ->
+                wrapPlainTextHtml(extractXlsText(input))
+            extension == "ppt" || mimeType.contains("ms-powerpoint") ->
+                wrapPlainTextHtml(extractPptText(input))
             else -> throw IOException("Unsupported office subtype")
         }
     } ?: throw IOException("Cannot open office document stream")
 }
 
-private fun extractDocxText(input: InputStream): String {
-    val xmlFiles = unzipEntries(input, setOf("word/document.xml"))
-    val docXml = xmlFiles["word/document.xml"]
-        ?: throw IOException("No word/document.xml in docx")
-    return parseXmlTextElements(docXml, "t")
+private fun wrapPlainTextHtml(text: String): String {
+    val escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return buildHtmlPage("<pre style=\"white-space:pre-wrap;word-break:break-word;\">$escaped</pre>")
 }
 
-private fun extractXlsxText(input: InputStream): String {
-    val needed = mutableSetOf("xl/sharedStrings.xml", "xl/workbook.xml")
-    for (i in 1..50) needed.add("xl/worksheets/sheet$i.xml")
-    val xmlFiles = unzipEntries(input, needed)
+private fun buildHtmlPage(body: String): String = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1a1a1a; background: #fff;
+    margin: 0; padding: 16px;
+    line-height: 1.6; font-size: 14px;
+  }
+  h1 { font-size: 22px; margin: 18px 0 8px; }
+  h2 { font-size: 18px; margin: 16px 0 6px; }
+  h3 { font-size: 16px; margin: 14px 0 4px; }
+  p  { margin: 0 0 8px; }
+  table {
+    border-collapse: collapse; width: 100%;
+    margin: 12px 0; font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #c0c0c0; padding: 6px 10px;
+    text-align: left; vertical-align: top;
+  }
+  th { background: #f0f0f0; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+  .sheet-title {
+    font-size: 16px; font-weight: 600;
+    margin: 20px 0 6px; color: #333;
+    border-bottom: 2px solid #4285f4; padding-bottom: 4px;
+  }
+  .slide {
+    border: 1px solid #d0d0d0; border-radius: 6px;
+    padding: 20px; margin: 16px 0;
+    background: #fff; page-break-inside: avoid;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .slide-number {
+    font-size: 11px; color: #888;
+    margin-bottom: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .slide p { margin: 4px 0; }
+  img { max-width: 100%; height: auto; margin: 8px 0; }
+  pre { font-size: 13px; line-height: 1.5; }
+</style>
+</head>
+<body>
+$body
+</body>
+</html>
+""".trimIndent()
 
-    val sharedStrings = xmlFiles["xl/sharedStrings.xml"]?.let { parseSharedStrings(it) } ?: emptyList()
-    val sheetNames = xmlFiles["xl/workbook.xml"]?.let { parseXlsxSheetNames(it) } ?: emptyList()
+// ---------------------------------------------------------------------------
+// OOXML → HTML converters
+// ---------------------------------------------------------------------------
 
-    return buildString {
+private fun extractDocxHtml(input: InputStream): String {
+    val needed = mutableSetOf("word/document.xml")
+    val allEntries = unzipAllEntries(input)
+    val docXml = allEntries["word/document.xml"]
+        ?: throw IOException("No word/document.xml in docx")
+    val body = parseDocxToHtml(docXml, allEntries)
+    return buildHtmlPage(body)
+}
+
+private fun extractXlsxHtml(input: InputStream): String {
+    val allEntries = unzipAllEntries(input)
+    val sharedStrings = allEntries["xl/sharedStrings.xml"]?.let { parseSharedStrings(it) } ?: emptyList()
+    val sheetNames = allEntries["xl/workbook.xml"]?.let { parseXlsxSheetNames(it) } ?: emptyList()
+
+    val body = buildString {
         var sheetIdx = 0
         for (i in 1..50) {
-            val sheetXml = xmlFiles["xl/worksheets/sheet$i.xml"] ?: continue
+            val sheetXml = allEntries["xl/worksheets/sheet$i.xml"] ?: continue
             val name = sheetNames.getOrElse(sheetIdx) { "Sheet $i" }
             sheetIdx++
-            appendLine("Sheet: $name")
-            appendLine(parseXlsxSheet(sheetXml, sharedStrings))
-            appendLine()
+            append("<div class=\"sheet-title\">${escHtml(name)}</div>")
+            append(parseXlsxSheetToHtml(sheetXml, sharedStrings))
         }
-    }.trim()
+    }
+    return buildHtmlPage(body)
 }
 
-private fun extractPptxText(input: InputStream): String {
-    val needed = mutableSetOf<String>()
-    for (i in 1..200) needed.add("ppt/slides/slide$i.xml")
-    val xmlFiles = unzipEntries(input, needed)
-
-    return buildString {
+private fun extractPptxHtml(input: InputStream): String {
+    val allEntries = unzipAllEntries(input)
+    val body = buildString {
         for (i in 1..200) {
-            val slideXml = xmlFiles["ppt/slides/slide$i.xml"] ?: continue
-            appendLine("Slide $i")
-            appendLine(parseXmlTextElements(slideXml, "t"))
-            appendLine()
+            val slideXml = allEntries["ppt/slides/slide$i.xml"] ?: continue
+            append("<div class=\"slide\">")
+            append("<div class=\"slide-number\">Slide $i</div>")
+            append(parsePptxSlideToHtml(slideXml))
+            append("</div>")
         }
-    }.trim()
+    }
+    return buildHtmlPage(body)
 }
 
-private fun unzipEntries(input: InputStream, wantedNames: Set<String>): Map<String, ByteArray> {
+private fun escHtml(s: String): String =
+    s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+private fun unzipAllEntries(input: InputStream): Map<String, ByteArray> {
     val result = mutableMapOf<String, ByteArray>()
     ZipInputStream(input).use { zip ->
         var entry = zip.nextEntry
         while (entry != null) {
-            if (entry.name in wantedNames) {
+            if (!entry.isDirectory) {
                 result[entry.name] = zip.readBytes()
             }
             zip.closeEntry()
@@ -764,97 +906,122 @@ private fun unzipEntries(input: InputStream, wantedNames: Set<String>): Map<Stri
     return result
 }
 
-private fun parseXmlTextElements(xml: ByteArray, localTag: String): String {
-    val factory = XmlPullParserFactory.newInstance()
-    factory.isNamespaceAware = true
-    val parser = factory.newPullParser()
-    parser.setInput(xml.inputStream(), null)
+// --- docx → HTML ---
 
-    val result = StringBuilder()
-    var insideTag = false
+private fun parseDocxToHtml(xml: ByteArray, allEntries: Map<String, ByteArray>): String {
+    val parser = newNsParser(xml)
+    val html = StringBuilder()
+
+    var inParagraph = false
+    var inRun = false
+    var inText = false
+    var bold = false
+    var italic = false
+    var underline = false
+    var inTable = false
+    var inTableRow = false
+    var inTableCell = false
+    var inDrawing = false
+
     var event = parser.eventType
     while (event != XmlPullParser.END_DOCUMENT) {
         when (event) {
-            XmlPullParser.START_TAG -> {
-                if (parser.name == localTag) insideTag = true
-            }
-            XmlPullParser.TEXT -> {
-                if (insideTag) {
-                    val text = parser.text.orEmpty()
-                    if (text.isNotBlank()) result.appendLine(text.trim())
-                }
-            }
-            XmlPullParser.END_TAG -> {
-                if (parser.name == localTag) insideTag = false
-            }
-        }
-        event = parser.next()
-    }
-    return result.toString().trim()
-}
-
-private fun parseSharedStrings(xml: ByteArray): List<String> {
-    val factory = XmlPullParserFactory.newInstance()
-    factory.isNamespaceAware = true
-    val parser = factory.newPullParser()
-    parser.setInput(xml.inputStream(), null)
-
-    val strings = mutableListOf<String>()
-    var currentString = StringBuilder()
-    var inSi = false
-    var inT = false
-    var event = parser.eventType
-    while (event != XmlPullParser.END_DOCUMENT) {
-        when (event) {
-            XmlPullParser.START_TAG -> {
-                when (parser.name) {
-                    "si" -> { inSi = true; currentString = StringBuilder() }
-                    "t" -> if (inSi) inT = true
+            XmlPullParser.START_TAG -> when (parser.name) {
+                "p" -> { inParagraph = true; bold = false; italic = false; underline = false }
+                "r" -> inRun = true
+                "t" -> if (inRun) inText = true
+                "b" -> if (inRun) bold = true
+                "i" -> if (inRun) italic = true
+                "u" -> if (inRun) underline = true
+                "tbl" -> { inTable = true; html.append("<table>") }
+                "tr" -> { inTableRow = true; html.append("<tr>") }
+                "tc" -> { inTableCell = true; html.append("<td>") }
+                "drawing", "pict" -> inDrawing = true
+                "blip" -> {
+                    val embed = parser.getAttributeValue(null, "embed")
+                        ?: parser.getAttributeValue("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed")
+                    if (embed != null) {
+                        val imgPath = resolveDocxImage(embed, allEntries)
+                        if (imgPath != null) {
+                            val imgBytes = allEntries[imgPath]
+                            if (imgBytes != null) {
+                                val mime = when {
+                                    imgPath.endsWith(".png") -> "image/png"
+                                    imgPath.endsWith(".gif") -> "image/gif"
+                                    else -> "image/jpeg"
+                                }
+                                val b64 = Base64.encodeToString(imgBytes, Base64.NO_WRAP)
+                                html.append("<img src=\"data:$mime;base64,$b64\">")
+                            }
+                        }
+                    }
                 }
             }
             XmlPullParser.TEXT -> {
-                if (inT) currentString.append(parser.text.orEmpty())
-            }
-            XmlPullParser.END_TAG -> {
-                when (parser.name) {
-                    "t" -> inT = false
-                    "si" -> { inSi = false; strings.add(currentString.toString()) }
+                if (inText) {
+                    val text = escHtml(parser.text.orEmpty())
+                    if (text.isNotBlank()) {
+                        val sb = StringBuilder()
+                        if (bold) sb.append("<b>")
+                        if (italic) sb.append("<i>")
+                        if (underline) sb.append("<u>")
+                        sb.append(text)
+                        if (underline) sb.append("</u>")
+                        if (italic) sb.append("</i>")
+                        if (bold) sb.append("</b>")
+                        html.append(sb)
+                    }
                 }
             }
+            XmlPullParser.END_TAG -> when (parser.name) {
+                "t" -> inText = false
+                "r" -> { inRun = false; bold = false; italic = false; underline = false }
+                "p" -> {
+                    if (inTableCell) html.append("<br>")
+                    else html.append("<p></p>\n")
+                    inParagraph = false
+                }
+                "tc" -> { html.append("</td>"); inTableCell = false }
+                "tr" -> { html.append("</tr>"); inTableRow = false }
+                "tbl" -> { html.append("</table>"); inTable = false }
+                "drawing", "pict" -> inDrawing = false
+            }
         }
         event = parser.next()
     }
-    return strings
+    return html.toString()
 }
 
-private fun parseXlsxSheetNames(xml: ByteArray): List<String> {
-    val factory = XmlPullParserFactory.newInstance()
-    factory.isNamespaceAware = true
-    val parser = factory.newPullParser()
-    parser.setInput(xml.inputStream(), null)
-
-    val names = mutableListOf<String>()
+private fun resolveDocxImage(embedId: String, allEntries: Map<String, ByteArray>): String? {
+    val relsXml = allEntries["word/_rels/document.xml.rels"] ?: return null
+    val parser = newNsParser(relsXml)
     var event = parser.eventType
     while (event != XmlPullParser.END_DOCUMENT) {
-        if (event == XmlPullParser.START_TAG && parser.name == "sheet") {
-            parser.getAttributeValue(null, "name")?.let { names.add(it) }
+        if (event == XmlPullParser.START_TAG && parser.name == "Relationship") {
+            val id = parser.getAttributeValue(null, "Id")
+            val target = parser.getAttributeValue(null, "Target")
+            if (id == embedId && target != null) {
+                return if (target.startsWith("/")) target.removePrefix("/")
+                else "word/$target"
+            }
         }
         event = parser.next()
     }
-    return names
+    return null
 }
 
-private fun parseXlsxSheet(xml: ByteArray, sharedStrings: List<String>): String {
-    val factory = XmlPullParserFactory.newInstance()
-    factory.isNamespaceAware = true
-    val parser = factory.newPullParser()
-    parser.setInput(xml.inputStream(), null)
+// --- xlsx → HTML ---
 
-    val result = StringBuilder()
+private fun parseXlsxSheetToHtml(xml: ByteArray, sharedStrings: List<String>): String {
+    val parser = newNsParser(xml)
+    val html = StringBuilder()
+    html.append("<table>")
+
     val rowCells = mutableListOf<String>()
     var cellType: String? = null
     var inValue = false
     var cellText = StringBuilder()
+    var isFirstRow = true
     var event = parser.eventType
     while (event != XmlPullParser.END_DOCUMENT) {
         when (event) {
@@ -877,18 +1044,110 @@ private fun parseXlsxSheet(xml: ByteArray, sharedStrings: List<String>): String 
                         val idx = raw.toIntOrNull()
                         if (idx != null && idx in sharedStrings.indices) sharedStrings[idx] else raw
                     } else raw
-                    rowCells.add(display)
+                    rowCells.add(escHtml(display))
                 }
                 "row" -> {
                     if (rowCells.any { it.isNotBlank() }) {
-                        result.appendLine(rowCells.joinToString(" | "))
+                        val tag = if (isFirstRow) "th" else "td"
+                        html.append("<tr>")
+                        rowCells.forEach { html.append("<$tag>$it</$tag>") }
+                        html.append("</tr>")
+                        isFirstRow = false
                     }
                 }
             }
         }
         event = parser.next()
     }
-    return result.toString().trim()
+    html.append("</table>")
+    return html.toString()
+}
+
+private fun parseSharedStrings(xml: ByteArray): List<String> {
+    val parser = newNsParser(xml)
+    val strings = mutableListOf<String>()
+    var currentString = StringBuilder()
+    var inSi = false
+    var inT = false
+    var event = parser.eventType
+    while (event != XmlPullParser.END_DOCUMENT) {
+        when (event) {
+            XmlPullParser.START_TAG -> when (parser.name) {
+                "si" -> { inSi = true; currentString = StringBuilder() }
+                "t" -> if (inSi) inT = true
+            }
+            XmlPullParser.TEXT -> {
+                if (inT) currentString.append(parser.text.orEmpty())
+            }
+            XmlPullParser.END_TAG -> when (parser.name) {
+                "t" -> inT = false
+                "si" -> { inSi = false; strings.add(currentString.toString()) }
+            }
+        }
+        event = parser.next()
+    }
+    return strings
+}
+
+private fun parseXlsxSheetNames(xml: ByteArray): List<String> {
+    val parser = newNsParser(xml)
+    val names = mutableListOf<String>()
+    var event = parser.eventType
+    while (event != XmlPullParser.END_DOCUMENT) {
+        if (event == XmlPullParser.START_TAG && parser.name == "sheet") {
+            parser.getAttributeValue(null, "name")?.let { names.add(it) }
+        }
+        event = parser.next()
+    }
+    return names
+}
+
+// --- pptx → HTML ---
+
+private fun parsePptxSlideToHtml(xml: ByteArray): String {
+    val parser = newNsParser(xml)
+    val html = StringBuilder()
+    var inText = false
+    var inParagraph = false
+    var event = parser.eventType
+    while (event != XmlPullParser.END_DOCUMENT) {
+        when (event) {
+            XmlPullParser.START_TAG -> when (parser.name) {
+                "p" -> {
+                    if (parser.namespace?.contains("drawingml") == true ||
+                        parser.namespace?.contains("schemas.openxmlformats.org/drawingml") == true) {
+                        inParagraph = true
+                    }
+                }
+                "t" -> inText = true
+            }
+            XmlPullParser.TEXT -> {
+                if (inText) {
+                    val text = escHtml(parser.text.orEmpty())
+                    if (text.isNotBlank()) html.append(text)
+                }
+            }
+            XmlPullParser.END_TAG -> when (parser.name) {
+                "t" -> inText = false
+                "p" -> {
+                    if (inParagraph) {
+                        html.append("<p></p>")
+                        inParagraph = false
+                    }
+                }
+            }
+        }
+        event = parser.next()
+    }
+    return html.toString()
+}
+
+private fun newNsParser(xml: ByteArray): XmlPullParser {
+    val factory = XmlPullParserFactory.newInstance()
+    factory.isNamespaceAware = true
+    val parser = factory.newPullParser()
+    parser.setInput(xml.inputStream(), null)
+    return parser
 }
 
 // ---------------------------------------------------------------------------
