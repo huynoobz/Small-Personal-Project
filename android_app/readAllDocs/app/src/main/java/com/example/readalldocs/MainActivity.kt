@@ -108,6 +108,7 @@ import org.apache.poi.hslf.usermodel.HSLFSlideShow
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.hwpf.HWPFDocument
 import org.apache.poi.hwpf.extractor.WordExtractor
+import org.apache.poi.sl.usermodel.ShapeType
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DataFormatter
 import org.xmlpull.v1.XmlPullParser
@@ -860,7 +861,7 @@ private fun extractOfficeHtml(context: Context, uri: Uri): OfficeHtmlResult {
             extension == "xls" || mimeType.contains("ms-excel") ->
                 extractXlsSheets(input)
             extension == "ppt" || mimeType.contains("ms-powerpoint") ->
-                OfficeHtmlResult.Single(extractPptHtml(input))
+                OfficeHtmlResult.Single(wrapPlainTextHtml(extractPptText(input)))
             else -> throw IOException("Unsupported office subtype")
         }
     } ?: throw IOException("Cannot open office document stream")
@@ -908,17 +909,21 @@ private fun buildHtmlPage(body: String): String = """
     border-bottom: 2px solid #4285f4; padding-bottom: 4px;
   }
   .slide {
-    border: 1px solid #d0d0d0; border-radius: 6px;
-    padding: 20px; margin: 16px 0;
+    border: 1px solid #c0c0c0; border-radius: 6px;
+    padding: 28px 24px 24px; margin: 16px 0;
     background: #fff; page-break-inside: avoid;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    min-height: 200px;
+    background-size: cover; background-position: center;
+    overflow: hidden;
   }
   .slide-number {
-    font-size: 11px; color: #888;
-    margin-bottom: 10px; font-weight: 600;
+    font-size: 10px; color: inherit; opacity: 0.5;
+    margin-bottom: 12px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.5px;
   }
-  .slide p { margin: 4px 0; }
+  .slide p { margin: 6px 0; }
+  .slide img { border-radius: 4px; }
   img { max-width: 100%; height: auto; margin: 8px 0; }
   pre { font-size: 13px; line-height: 1.5; }
 </style>
@@ -1022,9 +1027,24 @@ private fun extractPptxHtml(input: InputStream): String {
     val body = buildString {
         for (i in 1..200) {
             val slideXml = allEntries["ppt/slides/slide$i.xml"] ?: continue
-            append("<div class=\"slide\">")
+            val (slideHtml, bgColor) = parsePptxSlideToHtml(slideXml, i, allEntries)
+            val styles = mutableListOf<String>()
+            if (bgColor != null) {
+                styles.add("background:$bgColor")
+                val hex = bgColor.removePrefix("#")
+                if (hex.length >= 6) {
+                    val r = hex.substring(0, 2).toInt(16)
+                    val g = hex.substring(2, 4).toInt(16)
+                    val b = hex.substring(4, 6).toInt(16)
+                    if (0.299 * r + 0.587 * g + 0.114 * b < 128) {
+                        styles.add("color:#fff")
+                    }
+                }
+            }
+            val styleAttr = if (styles.isNotEmpty()) " style=\"${styles.joinToString(";")}\"" else ""
+            append("<div class=\"slide\"$styleAttr>")
             append("<div class=\"slide-number\">Slide $i</div>")
-            append(parsePptxSlideToHtml(slideXml))
+            append(slideHtml)
             append("</div>")
         }
     }
@@ -1387,34 +1407,142 @@ private fun parseXlsxSheetNames(xml: ByteArray): List<String> {
 
 // --- pptx → HTML ---
 
-private fun parsePptxSlideToHtml(xml: ByteArray): String {
+private fun parsePptxSlideToHtml(
+    xml: ByteArray,
+    slideIndex: Int,
+    allEntries: Map<String, ByteArray>
+): Pair<String, String?> {
     val parser = newNsParser(xml)
     val html = StringBuilder()
-    var inText = false
+    val rNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
     var inParagraph = false
+    var inRun = false
+    var inRunProps = false
+    var inText = false
+    var inBg = false
+    var inSolidFill = false
+
+    var bold = false
+    var italic = false
+    var underline = false
+    var fontSize: Int? = null
+    var textColor: String? = null
+    var pAlign: String? = null
+
+    var bgColor: String? = null
+    var pContent = StringBuilder()
+
     var event = parser.eventType
     while (event != XmlPullParser.END_DOCUMENT) {
         when (event) {
             XmlPullParser.START_TAG -> when (parser.name) {
-                "p" -> {
-                    if (parser.namespace?.contains("drawingml") == true ||
-                        parser.namespace?.contains("schemas.openxmlformats.org/drawingml") == true) {
-                        inParagraph = true
+                "bg" -> inBg = true
+                "solidFill" -> inSolidFill = true
+                "srgbClr" -> if (inSolidFill) {
+                    val color = parser.getAttributeValue(null, "val")
+                    if (color != null) {
+                        if (inBg) bgColor = "#$color"
+                        else if (inRunProps) textColor = "#$color"
                     }
                 }
-                "t" -> inText = true
+                "p" -> {
+                    val ns = parser.namespace.orEmpty()
+                    if (ns.contains("drawingml")) {
+                        inParagraph = true
+                        pContent = StringBuilder()
+                        pAlign = null
+                    }
+                }
+                "pPr" -> if (inParagraph && !inRun) {
+                    pAlign = parser.getAttributeValue(null, "algn")
+                }
+                "r" -> if (inParagraph) {
+                    inRun = true
+                    bold = false; italic = false; underline = false
+                    fontSize = null; textColor = null
+                }
+                "rPr" -> if (inRun || inParagraph) {
+                    inRunProps = true
+                    bold = parser.getAttributeValue(null, "b").let { it == "1" || it == "true" }
+                    italic = parser.getAttributeValue(null, "i").let { it == "1" || it == "true" }
+                    underline = parser.getAttributeValue(null, "u").let { it != null && it != "none" }
+                    fontSize = parser.getAttributeValue(null, "sz")?.toIntOrNull()
+                }
+                "t" -> if (inRun) inText = true
+                "blip" -> if (!inBg) {
+                    val embed = parser.getAttributeValue(rNs, "embed")
+                        ?: parser.getAttributeValue(null, "embed")
+                    if (embed != null) {
+                        val imgPath = resolvePptxImage(embed, slideIndex, allEntries)
+                        if (imgPath != null) {
+                            val imgBytes = allEntries[imgPath]
+                            if (imgBytes != null && imgBytes.size <= 1024 * 1024) {
+                                val mime = when {
+                                    imgPath.endsWith(".png", true) -> "image/png"
+                                    imgPath.endsWith(".gif", true) -> "image/gif"
+                                    imgPath.endsWith(".emf", true) -> null
+                                    imgPath.endsWith(".wmf", true) -> null
+                                    else -> "image/jpeg"
+                                }
+                                if (mime != null) {
+                                    val b64 = Base64.encodeToString(imgBytes, Base64.NO_WRAP)
+                                    val tag = "<img src=\"data:$mime;base64,$b64\">"
+                                    if (inParagraph) pContent.append(tag) else html.append(tag)
+                                }
+                            } else if (imgBytes != null) {
+                                val note = "<p style=\"color:#888;font-style:italic\">[Image too large]</p>"
+                                if (inParagraph) pContent.append(note) else html.append(note)
+                            }
+                        }
+                    }
+                }
             }
             XmlPullParser.TEXT -> {
                 if (inText) {
                     val text = escHtml(parser.text.orEmpty())
-                    if (text.isNotBlank()) html.append(text)
+                    if (text.isNotEmpty()) {
+                        val sb = StringBuilder()
+                        val styles = mutableListOf<String>()
+                        if (fontSize != null) {
+                            val ptSize = fontSize!! / 100
+                            if (ptSize > 16) styles.add("font-size:${ptSize}pt")
+                        }
+                        if (textColor != null) styles.add("color:$textColor")
+                        if (styles.isNotEmpty()) sb.append("<span style=\"${styles.joinToString(";")}\">")
+                        if (bold) sb.append("<b>")
+                        if (italic) sb.append("<i>")
+                        if (underline) sb.append("<u>")
+                        sb.append(text)
+                        if (underline) sb.append("</u>")
+                        if (italic) sb.append("</i>")
+                        if (bold) sb.append("</b>")
+                        if (styles.isNotEmpty()) sb.append("</span>")
+                        pContent.append(sb)
+                    }
                 }
             }
             XmlPullParser.END_TAG -> when (parser.name) {
+                "bg" -> inBg = false
+                "solidFill" -> inSolidFill = false
                 "t" -> inText = false
+                "rPr" -> inRunProps = false
+                "r" -> {
+                    inRun = false; bold = false; italic = false
+                    underline = false; fontSize = null; textColor = null
+                }
                 "p" -> {
-                    if (inParagraph) {
-                        html.append("<p></p>")
+                    if (inParagraph && parser.namespace.orEmpty().contains("drawingml")) {
+                        val content = pContent.toString()
+                        if (content.isNotBlank()) {
+                            val style = when (pAlign) {
+                                "ctr" -> " style=\"text-align:center\""
+                                "r" -> " style=\"text-align:right\""
+                                "just" -> " style=\"text-align:justify\""
+                                else -> ""
+                            }
+                            html.append("<p$style>$content</p>\n")
+                        }
                         inParagraph = false
                     }
                 }
@@ -1422,7 +1550,28 @@ private fun parsePptxSlideToHtml(xml: ByteArray): String {
         }
         event = parser.next()
     }
-    return html.toString()
+    return Pair(html.toString(), bgColor)
+}
+
+private fun resolvePptxImage(embedId: String, slideIndex: Int, allEntries: Map<String, ByteArray>): String? {
+    val relsXml = allEntries["ppt/slides/_rels/slide$slideIndex.xml.rels"] ?: return null
+    val parser = newNsParser(relsXml)
+    var event = parser.eventType
+    while (event != XmlPullParser.END_DOCUMENT) {
+        if (event == XmlPullParser.START_TAG && parser.name == "Relationship") {
+            val id = parser.getAttributeValue(null, "Id")
+            val target = parser.getAttributeValue(null, "Target")
+            if (id == embedId && target != null) {
+                return when {
+                    target.startsWith("/") -> target.removePrefix("/")
+                    target.startsWith("../") -> "ppt/" + target.removePrefix("../")
+                    else -> "ppt/slides/$target"
+                }
+            }
+        }
+        event = parser.next()
+    }
+    return null
 }
 
 private val xmlFactory: XmlPullParserFactory by lazy {
@@ -1484,60 +1633,31 @@ private fun extractXlsSheets(input: InputStream): OfficeHtmlResult {
     }
 }
 
-private fun extractPptHtml(input: InputStream): String {
+private fun extractPptText(input: InputStream): String {
     return HSLFSlideShow(input).use { show ->
-        val body = buildString {
+        buildString {
             show.slides.forEachIndexed { index, slide ->
-                append("<div class=\"slide\">")
-                append("<div class=\"slide-number\">Slide ${index + 1}</div>")
-                slide.shapes.forEach { shape -> appendHslfShapeHtml(shape, this) }
-                append("</div>")
+                appendLine("Slide ${index + 1}")
+                slide.shapes.forEach { shape ->
+                    appendHslfShapeText(shape, this)
+                }
+                appendLine()
             }
-        }
-        buildHtmlPage(body)
+        }.trim()
     }
 }
 
-private fun appendHslfShapeHtml(shape: HSLFShape, out: StringBuilder) {
-    when (shape) {
-        is org.apache.poi.hslf.usermodel.HSLFTable -> {
-            out.append("<table>")
-            for (row in 0 until shape.numberOfRows) {
-                out.append("<tr>")
-                for (col in 0 until shape.numberOfColumns) {
-                    val text = runCatching {
-                        shape.getCell(row, col)?.text.orEmpty().trim()
-                    }.getOrDefault("")
-                    out.append("<td>${escHtml(text)}</td>")
-                }
-                out.append("</tr>")
-            }
-            out.append("</table>")
+private fun appendHslfShapeText(shape: HSLFShape, builder: StringBuilder) {
+    when (shape.shapeType) {
+        ShapeType.TEXT_BOX, ShapeType.RECT -> {
+            val textShape = shape as? org.apache.poi.hslf.usermodel.HSLFTextShape
+            val text = textShape?.text.orEmpty().trim()
+            if (text.isNotBlank()) builder.appendLine(text)
         }
-        is org.apache.poi.hslf.usermodel.HSLFGroupShape -> {
-            shape.shapes.forEach { appendHslfShapeHtml(it, out) }
-        }
-        is org.apache.poi.hslf.usermodel.HSLFPictureShape -> runCatching {
-            val picData = shape.pictureData ?: return@runCatching
-            if (picData.data.size > 1024 * 1024) return@runCatching
-            val mime = when (picData.type) {
-                org.apache.poi.sl.usermodel.PictureData.PictureType.PNG -> "image/png"
-                org.apache.poi.sl.usermodel.PictureData.PictureType.GIF -> "image/gif"
-                org.apache.poi.sl.usermodel.PictureData.PictureType.JPEG -> "image/jpeg"
-                else -> return@runCatching
-            }
-            val b64 = Base64.encodeToString(picData.data, Base64.NO_WRAP)
-            out.append("<img src=\"data:$mime;base64,$b64\">")
-        }
-        is org.apache.poi.hslf.usermodel.HSLFTextShape -> {
-            val text = shape.text.orEmpty().trim()
-            if (text.isNotBlank()) {
-                text.split('\n').forEach { line ->
-                    val trimmed = line.trim()
-                    if (trimmed.isNotEmpty()) out.append("<p>${escHtml(trimmed)}</p>")
-                }
-            }
-        }
+        else -> Unit
+    }
+    if (shape is org.apache.poi.hslf.usermodel.HSLFGroupShape) {
+        shape.shapes.forEach { appendHslfShapeText(it, builder) }
     }
 }
 
