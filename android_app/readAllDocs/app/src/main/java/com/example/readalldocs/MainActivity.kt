@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.readalldocs.ui.theme.ReadAllDocsTheme
 import java.io.IOException
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -364,19 +365,33 @@ private fun queryDisplayName(context: Context, uri: Uri): String? {
 
 private data class PdfRendererHolder(
     val descriptor: ParcelFileDescriptor,
-    val renderer: PdfRenderer
+    val renderer: PdfRenderer,
+    val cachedFile: File?
 ) {
     fun close() {
         renderer.close()
         descriptor.close()
+        cachedFile?.delete()
     }
 }
 
 private fun openPdfRenderer(context: Context, uri: Uri): PdfRendererHolder? {
     return runCatching {
-        val pfd = context.contentResolver.openFileDescriptor(uri, "r") ?: return null
-        PdfRendererHolder(pfd, PdfRenderer(pfd))
+        val cacheFile = copyPdfToCache(context, uri)
+        val pfd = ParcelFileDescriptor.open(cacheFile, ParcelFileDescriptor.MODE_READ_ONLY)
+        PdfRendererHolder(pfd, PdfRenderer(pfd), cacheFile)
     }.getOrNull()
+}
+
+private fun copyPdfToCache(context: Context, uri: Uri): File {
+    val fileName = "active_pdf_${System.currentTimeMillis()}.pdf"
+    val cachedFile = File(context.cacheDir, fileName)
+    context.contentResolver.openInputStream(uri)?.use { input ->
+        cachedFile.outputStream().use { output ->
+            input.copyTo(output)
+        }
+    } ?: throw IOException("Unable to read PDF source")
+    return cachedFile
 }
 
 private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
