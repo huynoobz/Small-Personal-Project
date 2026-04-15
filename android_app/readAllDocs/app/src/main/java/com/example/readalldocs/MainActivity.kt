@@ -852,8 +852,13 @@ private fun extractOfficeHtml(context: Context, uri: Uri): OfficeHtmlResult {
                 extractXlsxSheets(input)
             extension == "pptx" || mimeType.contains("presentationml") ->
                 OfficeHtmlResult.Single(extractPptxHtml(input))
-            extension == "doc" || mimeType.contains("msword") ->
-                OfficeHtmlResult.Single(wrapPlainTextHtml(extractDocText(input)))
+            extension == "doc" || mimeType.contains("msword") -> {
+                val text = extractDocText(input)
+                val escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                OfficeHtmlResult.Single(buildPrintHtml(listOf(
+                    "<pre>$escaped</pre>"
+                )))
+            }
             extension == "xls" || mimeType.contains("ms-excel") ->
                 extractXlsSheets(input)
             extension == "ppt" || mimeType.contains("ms-powerpoint") ->
@@ -931,12 +936,67 @@ $body
 // ---------------------------------------------------------------------------
 
 private fun extractDocxHtml(input: InputStream): String {
-    val needed = mutableSetOf("word/document.xml")
     val allEntries = unzipAllEntries(input)
     val docXml = allEntries["word/document.xml"]
         ?: throw IOException("No word/document.xml in docx")
     val body = parseDocxToHtml(docXml, allEntries)
-    return buildHtmlPage(body)
+    val pages = body.split("<!--PB-->").map { it.trim() }.filter { it.isNotEmpty() }
+    return buildPrintHtml(if (pages.isEmpty()) listOf(body) else pages)
+}
+
+private fun buildPrintHtml(pages: List<String>): String {
+    val pagesDivs = pages.joinToString("\n") { "<div class=\"page\">$it</div>" }
+    return """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1a1a1a; background: #d0d0d0;
+    margin: 0; padding: 16px 8px;
+    line-height: 1.6; font-size: 14px;
+  }
+  .page {
+    background: #fff;
+    max-width: 680px;
+    margin: 0 auto 24px;
+    padding: 56px 48px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    border-radius: 2px;
+    min-height: 880px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  h1 { font-size: 22px; margin: 18px 0 8px; font-weight: 700; }
+  h2 { font-size: 18px; margin: 16px 0 6px; font-weight: 600; }
+  h3 { font-size: 16px; margin: 14px 0 4px; font-weight: 600; }
+  h4 { font-size: 15px; margin: 12px 0 4px; font-weight: 600; }
+  h5 { font-size: 14px; margin: 10px 0 4px; font-weight: 600; }
+  h6 { font-size: 13px; margin: 10px 0 4px; font-weight: 600; }
+  p  { margin: 0 0 4px; }
+  table {
+    border-collapse: collapse; width: 100%;
+    margin: 12px 0; font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #c0c0c0; padding: 6px 10px;
+    text-align: left; vertical-align: top;
+  }
+  th { background: #f0f0f0; font-weight: 600; }
+  tr:nth-child(even) { background: #fafafa; }
+  img { max-width: 100%; height: auto; margin: 8px 0; }
+  pre { font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+</style>
+</head>
+<body>
+$pagesDivs
+</body>
+</html>
+""".trimIndent()
 }
 
 private fun extractXlsxSheets(input: InputStream): OfficeHtmlResult {
@@ -1034,6 +1094,10 @@ private fun parseDocxToHtml(xml: ByteArray, allEntries: Map<String, ByteArray>):
     var inTableCell = false
     var inDrawing = false
 
+    var sectionBreakPending = false
+    var inSectPr = false
+    var sectPrIsContinuous = false
+
     val wNs = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
     var event = parser.eventType
@@ -1088,6 +1152,26 @@ private fun parseDocxToHtml(xml: ByteArray, allEntries: Map<String, ByteArray>):
                 "tr" -> { inTableRow = true; html.append("<tr>") }
                 "tc" -> { inTableCell = true; html.append("<td>") }
                 "drawing", "pict" -> inDrawing = true
+                "br" -> if (inRun) {
+                    val brType = parser.getAttributeValue(wNs, "type")
+                        ?: parser.getAttributeValue(null, "type")
+                    if (brType == "page") {
+                        if (pContent.toString().isBlank()) {
+                            html.append("<!--PB-->")
+                        } else {
+                            sectionBreakPending = true
+                        }
+                    }
+                }
+                "sectPr" -> if (inPPr) {
+                    inSectPr = true
+                    sectPrIsContinuous = false
+                }
+                "type" -> if (inSectPr) {
+                    val v = parser.getAttributeValue(wNs, "val")
+                        ?: parser.getAttributeValue(null, "val")
+                    if (v == "continuous") sectPrIsContinuous = true
+                }
                 "blip" -> {
                     val embed = parser.getAttributeValue(null, "embed")
                         ?: parser.getAttributeValue("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed")
@@ -1170,12 +1254,22 @@ private fun parseDocxToHtml(xml: ByteArray, allEntries: Map<String, ByteArray>):
                             html.append("<p$styleAttr>$content</p>\n")
                         }
                     }
+                    if (sectionBreakPending && !inTableCell) {
+                        html.append("<!--PB-->")
+                        sectionBreakPending = false
+                    }
                     inParagraph = false
                 }
                 "tc" -> { html.append("</td>"); inTableCell = false }
                 "tr" -> { html.append("</tr>"); inTableRow = false }
                 "tbl" -> { html.append("</table>"); inTable = false }
                 "drawing", "pict" -> inDrawing = false
+                "sectPr" -> {
+                    if (inSectPr && !sectPrIsContinuous) {
+                        sectionBreakPending = true
+                    }
+                    inSectPr = false
+                }
             }
         }
         event = parser.next()
@@ -1490,7 +1584,7 @@ private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
     for ((w, h) in attempts) {
         var bmp: Bitmap? = null
         try {
-            bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
+            bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             bmp.eraseColor(android.graphics.Color.WHITE)
             page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
             return bmp
