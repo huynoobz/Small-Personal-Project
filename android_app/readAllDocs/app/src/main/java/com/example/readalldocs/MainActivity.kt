@@ -61,6 +61,7 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -263,17 +264,13 @@ private fun PdfReader(uri: Uri) {
             }
             val targetIndex = pageIndex.coerceIn(0, pageCount - 1)
             renderer.openPage(targetIndex).use { page ->
-                val width = (page.width * 1.7f).toInt().coerceAtLeast(600)
-                val height = (page.height * 1.7f).toInt().coerceAtLeast(800)
-                val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
-                bmp.eraseColor(android.graphics.Color.WHITE)
-                page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                val bmp = renderPdfPageLowMemory(page)
                 renderedPage?.recycle()
                 renderedPage = bmp
                 errorText = null
             }
         }.onFailure {
-            errorText = "Failed to render page: ${it.message}"
+            errorText = "Failed to render PDF page. This file may be protected or too complex. Try Open External."
         }
     }
 
@@ -380,6 +377,38 @@ private fun openPdfRenderer(context: Context, uri: Uri): PdfRendererHolder? {
         val pfd = context.contentResolver.openFileDescriptor(uri, "r") ?: return null
         PdfRendererHolder(pfd, PdfRenderer(pfd))
     }.getOrNull()
+}
+
+private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
+    val baseScale = 1.5f
+    val desiredW = (page.width * baseScale).toInt().coerceAtLeast(480)
+    val desiredH = (page.height * baseScale).toInt().coerceAtLeast(640)
+
+    // Keep bitmap under a safe pixel cap for low-end devices.
+    val maxPixels = 2_100_000f // ~4.2MB in RGB_565
+    val currentPixels = desiredW.toFloat() * desiredH.toFloat()
+    val ratio = if (currentPixels > maxPixels) sqrt(maxPixels / currentPixels) else 1f
+    val targetW = (desiredW * ratio).toInt().coerceAtLeast(320)
+    val targetH = (desiredH * ratio).toInt().coerceAtLeast(480)
+
+    val attempts = listOf(
+        targetW to targetH,
+        (targetW * 0.75f).toInt().coerceAtLeast(240) to (targetH * 0.75f).toInt().coerceAtLeast(320),
+        (targetW * 0.55f).toInt().coerceAtLeast(180) to (targetH * 0.55f).toInt().coerceAtLeast(260)
+    )
+
+    var lastError: Throwable? = null
+    for ((w, h) in attempts) {
+        try {
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
+            bmp.eraseColor(android.graphics.Color.WHITE)
+            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+            return bmp
+        } catch (t: Throwable) {
+            lastError = t
+        }
+    }
+    throw IOException("All render attempts failed", lastError)
 }
 
 private fun openExternally(context: Context, uri: Uri) {
