@@ -1,5 +1,6 @@
 package com.example.readalldocs
 
+import android.app.ActivityManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentValues
@@ -25,9 +26,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -110,7 +108,6 @@ import org.apache.poi.hslf.usermodel.HSLFSlideShow
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.hwpf.HWPFDocument
 import org.apache.poi.hwpf.extractor.WordExtractor
-import org.apache.poi.sl.usermodel.ShapeType
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DataFormatter
 import org.xmlpull.v1.XmlPullParser
@@ -130,6 +127,11 @@ class MainActivity : ComponentActivity() {
 }
 
 private const val TAG = "ReadAllDocs"
+
+private fun isLowRam(context: Context): Boolean {
+    val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    return am.isLowRamDevice
+}
 
 private enum class DocumentType {
     PDF, TEXT, IMAGE, OFFICE, UNSUPPORTED
@@ -352,7 +354,7 @@ private fun TextReader(uri: Uri) {
         withContext(Dispatchers.IO) {
             runCatching {
                 context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
-                    val maxChars = 300_000
+                    val maxChars = 200_000
                     val data = CharArray(maxChars)
                     val read = reader.read(data)
                     if (read <= 0) "File is empty." else String(data, 0, read)
@@ -400,7 +402,8 @@ private fun ImageReader(uri: Uri) {
     LaunchedEffect(uri) {
         withContext(Dispatchers.IO) {
             runCatching {
-                decodeSampledBitmap(context, uri, maxPixels = 4_000_000)
+                val imgBudget = if (isLowRam(context)) 2_000_000 else 3_000_000
+                decodeSampledBitmap(context, uri, maxPixels = imgBudget)
             }
         }.onSuccess {
             if (it == null) errorText = "Unable to decode image."
@@ -448,28 +451,30 @@ private fun ImageReader(uri: Uri) {
 @Composable
 private fun PdfReader(uri: Uri) {
     val context = LocalContext.current
-    var pageCount by remember(uri) { mutableIntStateOf(0) }
-    var errorText by remember(uri) { mutableStateOf<String?>(null) }
+    var rendererHolder by remember { mutableStateOf<PdfRendererHolder?>(null) }
+    var pageCount by remember { mutableIntStateOf(0) }
+    var errorText by remember { mutableStateOf<String?>(null) }
 
-    val rendererHolder = remember(uri) { openPdfRenderer(context, uri) }
-
-    DisposableEffect(rendererHolder) {
-        pageCount = rendererHolder?.renderer?.pageCount ?: 0
+    DisposableEffect(Unit) {
         onDispose { rendererHolder?.close() }
     }
 
-    LaunchedEffect(uri, rendererHolder, pageCount) {
-        if (rendererHolder == null) {
-            Log.e(TAG, "PdfRenderer is null for uri=$uri")
-            errorText = "Cannot open this PDF."
-            return@LaunchedEffect
-        }
-        if (pageCount == 0) {
-            Log.w(TAG, "PDF has no pages. uri=$uri")
-            errorText = "PDF has no pages."
-            return@LaunchedEffect
-        }
+    LaunchedEffect(uri) {
+        val old = rendererHolder
+        rendererHolder = null
+        pageCount = 0
         errorText = null
+        val holder = withContext(Dispatchers.IO) {
+            old?.renderMutex?.withLock { old.close() }
+            openPdfRenderer(context, uri)
+        }
+        rendererHolder = holder
+        pageCount = holder?.renderer?.pageCount ?: 0
+        errorText = when {
+            holder == null -> "Cannot open this PDF."
+            pageCount == 0 -> "PDF has no pages."
+            else -> null
+        }
     }
 
     when {
@@ -478,10 +483,7 @@ private fun PdfReader(uri: Uri) {
         else -> {
             val listState = rememberLazyListState()
             val visiblePage by remember {
-                derivedStateOf {
-                    val first = listState.firstVisibleItemIndex + 1
-                    first
-                }
+                derivedStateOf { listState.firstVisibleItemIndex + 1 }
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
@@ -502,27 +504,21 @@ private fun PdfReader(uri: Uri) {
                     }
                 }
 
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.inverseSurface,
+                    tonalElevation = 4.dp,
+                    shadowElevation = 4.dp,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 24.dp)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.inverseSurface,
-                        tonalElevation = 4.dp,
-                        shadowElevation = 4.dp
-                    ) {
-                        Text(
-                            text = "$visiblePage / $pageCount",
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.inverseOnSurface
-                        )
-                    }
+                    Text(
+                        text = "$visiblePage / $pageCount",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.inverseOnSurface
+                    )
                 }
             }
         }
@@ -535,6 +531,8 @@ private fun PdfPageItem(
     uri: Uri,
     pageIndex: Int
 ) {
+    val context = LocalContext.current
+    val pdfPixelBudget = remember { if (isLowRam(context)) 800_000f else 1_200_000f }
     var renderedPage by remember(uri, pageIndex) { mutableStateOf<Bitmap?>(null) }
     var errorText by remember(uri, pageIndex) { mutableStateOf<String?>(null) }
 
@@ -554,7 +552,7 @@ private fun PdfPageItem(
             runCatching {
                 holder.renderMutex.withLock {
                     holder.renderer.openPage(pageIndex).use { page ->
-                        renderPdfPageLowMemory(page)
+                        renderPdfPageLowMemory(page, pdfPixelBudget)
                     }
                 }
             }
@@ -862,7 +860,7 @@ private fun extractOfficeHtml(context: Context, uri: Uri): OfficeHtmlResult {
             extension == "xls" || mimeType.contains("ms-excel") ->
                 extractXlsSheets(input)
             extension == "ppt" || mimeType.contains("ms-powerpoint") ->
-                OfficeHtmlResult.Single(wrapPlainTextHtml(extractPptText(input)))
+                OfficeHtmlResult.Single(extractPptHtml(input))
             else -> throw IOException("Unsupported office subtype")
         }
     } ?: throw IOException("Cannot open office document stream")
@@ -1036,8 +1034,8 @@ private fun extractPptxHtml(input: InputStream): String {
 private fun escHtml(s: String): String =
     s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-private const val MAX_ZIP_ENTRY_BYTES = 8L * 1024 * 1024   // 8 MB per entry
-private const val MAX_ZIP_TOTAL_BYTES = 40L * 1024 * 1024  // 40 MB total
+private const val MAX_ZIP_ENTRY_BYTES = 5L * 1024 * 1024
+private const val MAX_ZIP_TOTAL_BYTES = 25L * 1024 * 1024
 
 private fun unzipAllEntries(input: InputStream): Map<String, ByteArray> {
     val result = mutableMapOf<String, ByteArray>()
@@ -1179,7 +1177,7 @@ private fun parseDocxToHtml(xml: ByteArray, allEntries: Map<String, ByteArray>):
                         val imgPath = resolveDocxImage(embed, allEntries)
                         if (imgPath != null) {
                             val imgBytes = allEntries[imgPath]
-                            if (imgBytes != null && imgBytes.size <= 2 * 1024 * 1024) {
+                            if (imgBytes != null && imgBytes.size <= 1024 * 1024) {
                                 val mime = when {
                                     imgPath.endsWith(".png") -> "image/png"
                                     imgPath.endsWith(".gif") -> "image/gif"
@@ -1427,10 +1425,12 @@ private fun parsePptxSlideToHtml(xml: ByteArray): String {
     return html.toString()
 }
 
+private val xmlFactory: XmlPullParserFactory by lazy {
+    XmlPullParserFactory.newInstance().apply { isNamespaceAware = true }
+}
+
 private fun newNsParser(xml: ByteArray): XmlPullParser {
-    val factory = XmlPullParserFactory.newInstance()
-    factory.isNamespaceAware = true
-    val parser = factory.newPullParser()
+    val parser = xmlFactory.newPullParser()
     parser.setInput(xml.inputStream(), null)
     return parser
 }
@@ -1484,31 +1484,60 @@ private fun extractXlsSheets(input: InputStream): OfficeHtmlResult {
     }
 }
 
-private fun extractPptText(input: InputStream): String {
+private fun extractPptHtml(input: InputStream): String {
     return HSLFSlideShow(input).use { show ->
-        buildString {
+        val body = buildString {
             show.slides.forEachIndexed { index, slide ->
-                appendLine("Slide ${index + 1}")
-                slide.shapes.forEach { shape ->
-                    appendHslfShapeText(shape, this)
-                }
-                appendLine()
+                append("<div class=\"slide\">")
+                append("<div class=\"slide-number\">Slide ${index + 1}</div>")
+                slide.shapes.forEach { shape -> appendHslfShapeHtml(shape, this) }
+                append("</div>")
             }
-        }.trim()
+        }
+        buildHtmlPage(body)
     }
 }
 
-private fun appendHslfShapeText(shape: HSLFShape, builder: StringBuilder) {
-    when (shape.shapeType) {
-        ShapeType.TEXT_BOX, ShapeType.RECT -> {
-            val textShape = shape as? org.apache.poi.hslf.usermodel.HSLFTextShape
-            val text = textShape?.text.orEmpty().trim()
-            if (text.isNotBlank()) builder.appendLine(text)
+private fun appendHslfShapeHtml(shape: HSLFShape, out: StringBuilder) {
+    when (shape) {
+        is org.apache.poi.hslf.usermodel.HSLFTable -> {
+            out.append("<table>")
+            for (row in 0 until shape.numberOfRows) {
+                out.append("<tr>")
+                for (col in 0 until shape.numberOfColumns) {
+                    val text = runCatching {
+                        shape.getCell(row, col)?.text.orEmpty().trim()
+                    }.getOrDefault("")
+                    out.append("<td>${escHtml(text)}</td>")
+                }
+                out.append("</tr>")
+            }
+            out.append("</table>")
         }
-        else -> Unit
-    }
-    if (shape is org.apache.poi.hslf.usermodel.HSLFGroupShape) {
-        shape.shapes.forEach { appendHslfShapeText(it, builder) }
+        is org.apache.poi.hslf.usermodel.HSLFGroupShape -> {
+            shape.shapes.forEach { appendHslfShapeHtml(it, out) }
+        }
+        is org.apache.poi.hslf.usermodel.HSLFPictureShape -> runCatching {
+            val picData = shape.pictureData ?: return@runCatching
+            if (picData.data.size > 1024 * 1024) return@runCatching
+            val mime = when (picData.type) {
+                org.apache.poi.sl.usermodel.PictureData.PictureType.PNG -> "image/png"
+                org.apache.poi.sl.usermodel.PictureData.PictureType.GIF -> "image/gif"
+                org.apache.poi.sl.usermodel.PictureData.PictureType.JPEG -> "image/jpeg"
+                else -> return@runCatching
+            }
+            val b64 = Base64.encodeToString(picData.data, Base64.NO_WRAP)
+            out.append("<img src=\"data:$mime;base64,$b64\">")
+        }
+        is org.apache.poi.hslf.usermodel.HSLFTextShape -> {
+            val text = shape.text.orEmpty().trim()
+            if (text.isNotBlank()) {
+                text.split('\n').forEach { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.isNotEmpty()) out.append("<p>${escHtml(trimmed)}</p>")
+                }
+            }
+        }
     }
 }
 
@@ -1551,6 +1580,10 @@ private fun openPdfRenderer(context: Context, uri: Uri): PdfRendererHolder? {
 }
 
 private fun copyPdfToCache(context: Context, uri: Uri): File {
+    val cutoff = System.currentTimeMillis() - 60_000
+    context.cacheDir.listFiles()?.forEach { f ->
+        if (f.name.startsWith("active_pdf_") && f.lastModified() < cutoff) f.delete()
+    }
     val fileName = "active_pdf_${System.currentTimeMillis()}.pdf"
     val cachedFile = File(context.cacheDir, fileName)
     Log.d(TAG, "Copying PDF to cache uri=$uri destination=${cachedFile.absolutePath}")
@@ -1563,12 +1596,11 @@ private fun copyPdfToCache(context: Context, uri: Uri): File {
     return cachedFile
 }
 
-private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
+private fun renderPdfPageLowMemory(page: PdfRenderer.Page, maxPixels: Float = 1_200_000f): Bitmap {
     val baseScale = 1.5f
     val desiredW = (page.width * baseScale).toInt().coerceAtLeast(480)
     val desiredH = (page.height * baseScale).toInt().coerceAtLeast(640)
 
-    val maxPixels = 1_500_000f
     val currentPixels = desiredW.toFloat() * desiredH.toFloat()
     val ratio = if (currentPixels > maxPixels) sqrt(maxPixels / currentPixels) else 1f
     val targetW = (desiredW * ratio).toInt().coerceAtLeast(320)
