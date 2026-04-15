@@ -412,8 +412,8 @@ private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
     val desiredW = (page.width * baseScale).toInt().coerceAtLeast(480)
     val desiredH = (page.height * baseScale).toInt().coerceAtLeast(640)
 
-    // Keep bitmap under a safe pixel cap for low-end devices.
-    val maxPixels = 2_100_000f // ~4.2MB in RGB_565
+    // PdfRenderer requires ARGB_8888 output, so keep the bitmap under a safe cap.
+    val maxPixels = 2_100_000f // ~8.4MB in ARGB_8888
     val currentPixels = desiredW.toFloat() * desiredH.toFloat()
     val ratio = if (currentPixels > maxPixels) sqrt(maxPixels / currentPixels) else 1f
     val targetW = (desiredW * ratio).toInt().coerceAtLeast(320)
@@ -431,14 +431,16 @@ private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
 
     var lastError: Throwable? = null
     for ((w, h) in attempts) {
+        var bmp: Bitmap? = null
         try {
             Log.d(TAG, "Render attempt bitmap=${w}x$h")
-            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
+            bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             bmp.eraseColor(android.graphics.Color.WHITE)
             page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
             Log.d(TAG, "Render success bitmap=${w}x$h")
             return bmp
         } catch (t: Throwable) {
+            bmp?.recycle()
             Log.e(TAG, "Render attempt failed bitmap=${w}x$h message=${t.message}", t)
             lastError = t
         }
