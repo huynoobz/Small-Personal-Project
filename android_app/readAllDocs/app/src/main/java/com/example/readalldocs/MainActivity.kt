@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ReadAllDocsTheme {
-                ReaderApp()
+                ReaderApp(initialUri = intent?.data)
             }
         }
     }
@@ -80,7 +80,7 @@ private enum class DocumentType {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReaderApp() {
+private fun ReaderApp(initialUri: Uri?) {
     val context = LocalContext.current
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var selectedType by remember { mutableStateOf(DocumentType.UNSUPPORTED) }
@@ -98,6 +98,13 @@ private fun ReaderApp() {
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         }
+        selectedUri = uri
+        selectedType = detectType(context, uri)
+        selectedName = queryDisplayName(context, uri) ?: "Document"
+    }
+
+    LaunchedEffect(initialUri) {
+        val uri = initialUri ?: return@LaunchedEffect
         selectedUri = uri
         selectedType = detectType(context, uri)
         selectedName = queryDisplayName(context, uri) ?: "Document"
