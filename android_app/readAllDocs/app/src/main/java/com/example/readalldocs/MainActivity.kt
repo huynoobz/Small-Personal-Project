@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
+import android.util.Log
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -75,6 +76,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+private const val TAG = "ReadAllDocs"
 
 private enum class DocumentType {
     PDF, TEXT, IMAGE, OFFICE, UNSUPPORTED
@@ -255,15 +258,18 @@ private fun PdfReader(uri: Uri) {
     LaunchedEffect(uri, pageIndex, rendererHolder) {
         val renderer = rendererHolder?.renderer
         if (renderer == null) {
+            Log.e(TAG, "PdfRenderer is null for uri=$uri")
             errorText = "Cannot open this PDF. Try external viewer."
             return@LaunchedEffect
         }
         runCatching {
             if (pageCount == 0) {
+                Log.w(TAG, "PDF has no pages. uri=$uri")
                 errorText = "PDF has no pages."
                 return@runCatching
             }
             val targetIndex = pageIndex.coerceIn(0, pageCount - 1)
+            Log.d(TAG, "Rendering pdf uri=$uri page=$targetIndex/$pageCount")
             renderer.openPage(targetIndex).use { page ->
                 val bmp = renderPdfPageLowMemory(page)
                 renderedPage?.recycle()
@@ -271,6 +277,7 @@ private fun PdfReader(uri: Uri) {
                 errorText = null
             }
         }.onFailure {
+            Log.e(TAG, "PDF render failure uri=$uri pageIndex=$pageIndex message=${it.message}", it)
             errorText = "Failed to render PDF page. This file may be protected or too complex. Try Open External."
         }
     }
@@ -376,21 +383,27 @@ private data class PdfRendererHolder(
 }
 
 private fun openPdfRenderer(context: Context, uri: Uri): PdfRendererHolder? {
+    Log.d(TAG, "Opening PdfRenderer for uri=$uri mime=${context.contentResolver.getType(uri)}")
     return runCatching {
         val cacheFile = copyPdfToCache(context, uri)
+        Log.d(TAG, "Cached PDF path=${cacheFile.absolutePath} size=${cacheFile.length()}")
         val pfd = ParcelFileDescriptor.open(cacheFile, ParcelFileDescriptor.MODE_READ_ONLY)
         PdfRendererHolder(pfd, PdfRenderer(pfd), cacheFile)
+    }.onFailure {
+        Log.e(TAG, "Failed to open PdfRenderer for uri=$uri message=${it.message}", it)
     }.getOrNull()
 }
 
 private fun copyPdfToCache(context: Context, uri: Uri): File {
     val fileName = "active_pdf_${System.currentTimeMillis()}.pdf"
     val cachedFile = File(context.cacheDir, fileName)
+    Log.d(TAG, "Copying PDF to cache uri=$uri destination=${cachedFile.absolutePath}")
     context.contentResolver.openInputStream(uri)?.use { input ->
         cachedFile.outputStream().use { output ->
             input.copyTo(output)
         }
     } ?: throw IOException("Unable to read PDF source")
+    Log.d(TAG, "Copied PDF bytes=${cachedFile.length()}")
     return cachedFile
 }
 
@@ -411,18 +424,26 @@ private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
         (targetW * 0.75f).toInt().coerceAtLeast(240) to (targetH * 0.75f).toInt().coerceAtLeast(320),
         (targetW * 0.55f).toInt().coerceAtLeast(180) to (targetH * 0.55f).toInt().coerceAtLeast(260)
     )
+    Log.d(
+        TAG,
+        "PDF page size original=${page.width}x${page.height} desired=${desiredW}x${desiredH} target=${targetW}x${targetH} attempts=$attempts"
+    )
 
     var lastError: Throwable? = null
     for ((w, h) in attempts) {
         try {
+            Log.d(TAG, "Render attempt bitmap=${w}x$h")
             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
             bmp.eraseColor(android.graphics.Color.WHITE)
             page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+            Log.d(TAG, "Render success bitmap=${w}x$h")
             return bmp
         } catch (t: Throwable) {
+            Log.e(TAG, "Render attempt failed bitmap=${w}x$h message=${t.message}", t)
             lastError = t
         }
     }
+    Log.e(TAG, "All render attempts failed for page")
     throw IOException("All render attempts failed", lastError)
 }
 
