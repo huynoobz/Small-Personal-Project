@@ -79,7 +79,7 @@ import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DataFormatter
 import org.apache.poi.ss.usermodel.Workbook
 import org.apache.poi.xslf.usermodel.XSLFShape
-import org.apache.poi.xslf.usermodel.XSLFSlideShow
+import org.apache.poi.xslf.usermodel.XMLSlideShow
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import kotlin.math.sqrt
 
@@ -538,7 +538,7 @@ private fun extractWorkbookText(workbook: Workbook): String {
 }
 
 private fun extractPptxText(input: InputStream): String {
-    return XSLFSlideShow(input).use { show ->
+    return XMLSlideShow(input).use { show ->
         buildString {
             show.slides.forEachIndexed { index, slide ->
                 appendLine("Slide ${index + 1}")
