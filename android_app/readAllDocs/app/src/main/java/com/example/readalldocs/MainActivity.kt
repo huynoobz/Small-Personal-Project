@@ -22,32 +22,52 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,15 +78,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.readalldocs.ui.theme.ReadAllDocsTheme
-import java.io.IOException
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipInputStream
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.apache.poi.hslf.usermodel.HSLFShape
@@ -77,10 +98,8 @@ import org.apache.poi.hwpf.extractor.WordExtractor
 import org.apache.poi.sl.usermodel.ShapeType
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DataFormatter
-import org.apache.poi.ss.usermodel.Workbook
-import org.apache.poi.xslf.usermodel.XSLFShape
-import org.apache.poi.xslf.usermodel.XMLSlideShow
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserFactory
 import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
@@ -101,24 +120,25 @@ private enum class DocumentType {
     PDF, TEXT, IMAGE, OFFICE, UNSUPPORTED
 }
 
+// ---------------------------------------------------------------------------
+// App shell
+// ---------------------------------------------------------------------------
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReaderApp(initialUri: Uri?) {
     val context = LocalContext.current
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var selectedType by remember { mutableStateOf(DocumentType.UNSUPPORTED) }
-    var selectedName by remember { mutableStateOf("No document selected") }
+    var selectedName by remember { mutableStateOf("") }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri == null) {
-            return@rememberLauncherForActivityResult
-        }
+        if (uri == null) return@rememberLauncherForActivityResult
         runCatching {
             context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         }
         selectedUri = uri
@@ -133,43 +153,65 @@ private fun ReaderApp(initialUri: Uri?) {
         selectedName = queryDisplayName(context, uri) ?: "Document"
     }
 
+    val hasDocument = selectedUri != null
+
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(title = { Text("Read All Docs (Light)") })
+            TopAppBar(
+                title = {
+                    if (hasDocument) {
+                        Text(
+                            text = selectedName,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    } else {
+                        Text(
+                            text = "Read All Docs",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { launcher.launch(arrayOf("*/*")) }) {
+                        Icon(
+                            Icons.Filled.FolderOpen,
+                            contentDescription = "Open file"
+                        )
+                    }
+                    if (hasDocument) {
+                        IconButton(onClick = { openExternally(context, selectedUri!!) }) {
+                            Icon(
+                                Icons.Filled.OpenInNew,
+                                contentDescription = "Open in external app"
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
         },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+        val uri = selectedUri
+        if (uri == null) {
+            EmptyState(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                onOpen = { launcher.launch(arrayOf("*/*")) }
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
-                Button(onClick = {
-                    launcher.launch(arrayOf("*/*"))
-                }) {
-                    Text("Open Document")
-                }
-                Text(
-                    text = selectedName,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val uri = selectedUri
-            if (uri == null) {
-                Text(
-                    text = "Choose a file to start reading. Supported in-app: PDF, text, and images.\n" +
-                        "Office files (Word, Excel, PowerPoint) are rendered in-app.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
                 when (selectedType) {
                     DocumentType.PDF -> PdfReader(uri = uri)
                     DocumentType.TEXT -> TextReader(uri = uri)
@@ -183,37 +225,149 @@ private fun ReaderApp(initialUri: Uri?) {
 }
 
 @Composable
+private fun EmptyState(modifier: Modifier = Modifier, onOpen: () -> Unit) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.InsertDriveFile,
+            contentDescription = null,
+            modifier = Modifier.size(72.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = "No document open",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "PDF, Word, Excel, PowerPoint, text, and images",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+        Spacer(modifier = Modifier.height(28.dp))
+        FilledTonalButton(onClick = onOpen) {
+            Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Open a document")
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared loading / error composables
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun LoadingIndicator(label: String = "Loading...") {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(40.dp),
+                strokeWidth = 3.dp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ErrorCard(message: String, uri: Uri) {
+    val context = LocalContext.current
+    Box(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            )
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text = "Unable to display",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                FilledTonalButton(onClick = { openExternally(context, uri) }) {
+                    Icon(Icons.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Open in another app")
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Text viewer
+// ---------------------------------------------------------------------------
+
+@Composable
 private fun TextReader(uri: Uri) {
     val context = LocalContext.current
-    var textContent by remember { mutableStateOf("Loading text...") }
+    var textContent by remember { mutableStateOf<String?>(null) }
+    var errorText by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uri) {
-        textContent = runCatching {
+        runCatching {
             context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
                 val maxChars = 300_000
                 val data = CharArray(maxChars)
                 val read = reader.read(data)
                 if (read <= 0) "File is empty." else String(data, 0, read)
             } ?: "Failed to open file."
-        }.getOrElse { "Error reading text: ${it.message}" }
+        }.onSuccess { textContent = it; errorText = null }
+            .onFailure { errorText = "Error reading text: ${it.message}" }
     }
 
-    SelectionContainer {
-        Text(
-            text = textContent,
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            style = MaterialTheme.typography.bodyLarge
-        )
+    when {
+        errorText != null -> ErrorCard(message = errorText!!, uri = uri)
+        textContent == null -> LoadingIndicator("Loading text...")
+        else -> DocumentSurface {
+            SelectionContainer {
+                Text(
+                    text = textContent!!,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
+                )
+            }
+        }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Image viewer
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun ImageReader(uri: Uri) {
     val context = LocalContext.current
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var status by remember { mutableStateOf("Loading image...") }
+    var errorText by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uri) {
         runCatching {
@@ -221,35 +375,48 @@ private fun ImageReader(uri: Uri) {
                 val opts = BitmapFactory.Options().apply {
                     inPreferredConfig = Bitmap.Config.RGB_565
                 }
-                bitmap = BitmapFactory.decodeStream(stream, null, opts)
+                BitmapFactory.decodeStream(stream, null, opts)
             }
-            status = if (bitmap == null) "Unable to decode image." else ""
+        }.onSuccess {
+            if (it == null) errorText = "Unable to decode image."
+            else { bitmap = it; errorText = null }
         }.onFailure {
-            status = "Error loading image: ${it.message}"
+            errorText = "Error loading image: ${it.message}"
         }
     }
 
-    Column {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { copyUriToClipboard(context, uri) }) {
-                Text("Copy")
-            }
-            Button(onClick = { saveAsCopy(context, uri) }) {
-                Text("Save As")
-            }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        when (val currentBitmap = bitmap) {
-            null -> Text(status)
-            else -> Image(
-                bitmap = currentBitmap.asImageBitmap(),
+    when {
+        errorText != null -> ErrorCard(message = errorText!!, uri = uri)
+        bitmap == null -> LoadingIndicator("Loading image...")
+        else -> Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                bitmap = bitmap!!.asImageBitmap(),
                 contentDescription = "Selected image",
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
                 contentScale = ContentScale.Fit
             )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                FilledTonalIconButton(onClick = { copyUriToClipboard(context, uri) }) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = "Copy image")
+                }
+                FilledTonalIconButton(onClick = { saveAsCopy(context, uri) }) {
+                    Icon(Icons.Filled.SaveAlt, contentDescription = "Save copy")
+                }
+            }
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// PDF viewer
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun PdfReader(uri: Uri) {
@@ -257,21 +424,17 @@ private fun PdfReader(uri: Uri) {
     var pageCount by remember(uri) { mutableIntStateOf(0) }
     var errorText by remember(uri) { mutableStateOf<String?>(null) }
 
-    val rendererHolder = remember(uri) {
-        openPdfRenderer(context, uri)
-    }
+    val rendererHolder = remember(uri) { openPdfRenderer(context, uri) }
 
     DisposableEffect(rendererHolder) {
         pageCount = rendererHolder?.renderer?.pageCount ?: 0
-        onDispose {
-            rendererHolder?.close()
-        }
+        onDispose { rendererHolder?.close() }
     }
 
     LaunchedEffect(uri, rendererHolder, pageCount) {
         if (rendererHolder == null) {
             Log.e(TAG, "PdfRenderer is null for uri=$uri")
-            errorText = "Cannot open this PDF. Try external viewer."
+            errorText = "Cannot open this PDF."
             return@LaunchedEffect
         }
         if (pageCount == 0) {
@@ -282,31 +445,55 @@ private fun PdfReader(uri: Uri) {
         errorText = null
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = if (pageCount == 0) "No pages" else "$pageCount pages",
-                fontWeight = FontWeight.Medium
-            )
-            TextButton(onClick = { openExternally(context, uri) }) { Text("Open External") }
-        }
+    when {
+        errorText != null -> ErrorCard(message = errorText!!, uri = uri)
+        pageCount == 0 -> LoadingIndicator("Opening PDF...")
+        else -> {
+            val listState = rememberLazyListState()
+            val visiblePage by remember {
+                derivedStateOf {
+                    val first = listState.firstVisibleItemIndex + 1
+                    first
+                }
+            }
 
-        Spacer(modifier = Modifier.height(10.dp))
-        when {
-            errorText != null -> Text(errorText ?: "Unknown error")
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(pageCount, key = { it }) { pageIndex ->
-                    PdfPageItem(
-                        rendererHolder = rendererHolder,
-                        uri = uri,
-                        pageIndex = pageIndex
-                    )
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(pageCount, key = { it }) { pageIndex ->
+                        PdfPageItem(
+                            rendererHolder = rendererHolder,
+                            uri = uri,
+                            pageIndex = pageIndex
+                        )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.inverseSurface,
+                        tonalElevation = 4.dp,
+                        shadowElevation = 4.dp
+                    ) {
+                        Text(
+                            text = "$visiblePage / $pageCount",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.inverseOnSurface
+                        )
+                    }
                 }
             }
         }
@@ -330,8 +517,7 @@ private fun PdfPageItem(
     }
 
     LaunchedEffect(rendererHolder, uri, pageIndex) {
-        val holder = rendererHolder
-        if (holder == null) {
+        val holder = rendererHolder ?: run {
             errorText = "Cannot open page ${pageIndex + 1}."
             return@LaunchedEffect
         }
@@ -354,90 +540,119 @@ private fun PdfPageItem(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        shape = RoundedCornerShape(4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Text(
-            text = "Page ${pageIndex + 1}",
-            fontWeight = FontWeight.Medium
-        )
         when {
-            errorText != null -> Text(errorText ?: "Unknown error")
+            errorText != null -> Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = errorText!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             renderedPage == null -> Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(16.dp)
+                    .height(400.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Rendering page ${pageIndex + 1}...")
+                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.5.dp)
             }
             else -> Image(
                 bitmap = renderedPage!!.asImageBitmap(),
-                contentDescription = "PDF page ${pageIndex + 1}",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background),
+                contentDescription = "Page ${pageIndex + 1}",
+                modifier = Modifier.fillMaxWidth(),
                 contentScale = ContentScale.FillWidth
             )
         }
     }
 }
 
+// ---------------------------------------------------------------------------
+// Office viewer
+// ---------------------------------------------------------------------------
+
 @Composable
 private fun OfficeReader(uri: Uri) {
     val context = LocalContext.current
-    var content by remember(uri) { mutableStateOf("Loading office document...") }
+    var content by remember(uri) { mutableStateOf<String?>(null) }
     var errorText by remember(uri) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uri) {
         runCatching {
-            val extractedText = extractOfficeText(context, uri)
-            if (extractedText.isBlank()) "No readable text found in this document." else extractedText
-        }.onSuccess {
-            content = it
-            errorText = null
-        }.onFailure {
-            Log.e(TAG, "Office parse failure uri=$uri message=${it.message}", it)
-            content = ""
-            errorText = "Cannot render this Office file in-app: ${it.message ?: "unknown error"}"
-        }
+            val extracted = extractOfficeText(context, uri)
+            if (extracted.isBlank()) "No readable text found in this document." else extracted
+        }.onSuccess { content = it; errorText = null }
+            .onFailure {
+                Log.e(TAG, "Office parse failure uri=$uri message=${it.message}", it)
+                errorText = it.message ?: "Unknown error"
+            }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Button(onClick = { openExternally(context, uri) }) {
-            Text("Open External")
-        }
-        when (val err = errorText) {
-            null -> SelectionContainer {
+    when {
+        errorText != null -> ErrorCard(message = "Cannot render this Office file: $errorText", uri = uri)
+        content == null -> LoadingIndicator("Reading document...")
+        else -> DocumentSurface {
+            SelectionContainer {
                 Text(
-                    text = content,
+                    text = content!!,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    style = MaterialTheme.typography.bodyLarge
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
                 )
             }
-            else -> Text(
-                text = err,
-                style = MaterialTheme.typography.bodyLarge
-            )
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Unsupported file
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun UnsupportedFile(uri: Uri) {
-    val context = LocalContext.current
-    Text("This format is not supported in-app. Use external viewer.")
-    Spacer(modifier = Modifier.height(8.dp))
-    Button(onClick = { openExternally(context, uri) }) {
-        Text("Open External")
+    ErrorCard(message = "This file format is not supported for in-app viewing.", uri = uri)
+}
+
+// ---------------------------------------------------------------------------
+// Shared UI: document surface card
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun DocumentSurface(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            content()
+        }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Detection helpers
+// ---------------------------------------------------------------------------
 
 private fun detectType(context: Context, uri: Uri): DocumentType {
     val mimeType = context.contentResolver.getType(uri)?.lowercase(Locale.US).orEmpty()
@@ -468,6 +683,10 @@ private fun detectType(context: Context, uri: Uri): DocumentType {
     return DocumentType.UNSUPPORTED
 }
 
+// ---------------------------------------------------------------------------
+// OOXML formats: direct ZIP + XML parsing
+// ---------------------------------------------------------------------------
+
 private fun extractOfficeText(context: Context, uri: Uri): String {
     val extension = queryDisplayName(context, uri)
         ?.substringAfterLast('.', missingDelimiterValue = "")
@@ -478,8 +697,8 @@ private fun extractOfficeText(context: Context, uri: Uri): String {
         when {
             extension == "docx" || mimeType.contains("wordprocessingml") -> extractDocxText(input)
             extension == "doc" || mimeType.contains("msword") -> extractDocText(input)
-            extension == "xlsx" || mimeType.contains("spreadsheetml") -> extractWorkbookText(XSSFWorkbook(input))
-            extension == "xls" || mimeType.contains("ms-excel") -> extractWorkbookText(HSSFWorkbook(input))
+            extension == "xlsx" || mimeType.contains("spreadsheetml") -> extractXlsxText(input)
+            extension == "xls" || mimeType.contains("ms-excel") -> extractXlsText(input)
             extension == "pptx" || mimeType.contains("presentationml") -> extractPptxText(input)
             extension == "ppt" || mimeType.contains("ms-powerpoint") -> extractPptText(input)
             else -> throw IOException("Unsupported office subtype")
@@ -488,22 +707,193 @@ private fun extractOfficeText(context: Context, uri: Uri): String {
 }
 
 private fun extractDocxText(input: InputStream): String {
-    return org.apache.poi.xwpf.usermodel.XWPFDocument(input).use { doc ->
-        buildString {
-            doc.paragraphs.forEach { paragraph ->
-                val text = paragraph.text.orEmpty().trim()
-                if (text.isNotBlank()) appendLine(text)
+    val xmlFiles = unzipEntries(input, setOf("word/document.xml"))
+    val docXml = xmlFiles["word/document.xml"]
+        ?: throw IOException("No word/document.xml in docx")
+    return parseXmlTextElements(docXml, "t")
+}
+
+private fun extractXlsxText(input: InputStream): String {
+    val needed = mutableSetOf("xl/sharedStrings.xml", "xl/workbook.xml")
+    for (i in 1..50) needed.add("xl/worksheets/sheet$i.xml")
+    val xmlFiles = unzipEntries(input, needed)
+
+    val sharedStrings = xmlFiles["xl/sharedStrings.xml"]?.let { parseSharedStrings(it) } ?: emptyList()
+    val sheetNames = xmlFiles["xl/workbook.xml"]?.let { parseXlsxSheetNames(it) } ?: emptyList()
+
+    return buildString {
+        var sheetIdx = 0
+        for (i in 1..50) {
+            val sheetXml = xmlFiles["xl/worksheets/sheet$i.xml"] ?: continue
+            val name = sheetNames.getOrElse(sheetIdx) { "Sheet $i" }
+            sheetIdx++
+            appendLine("Sheet: $name")
+            appendLine(parseXlsxSheet(sheetXml, sharedStrings))
+            appendLine()
+        }
+    }.trim()
+}
+
+private fun extractPptxText(input: InputStream): String {
+    val needed = mutableSetOf<String>()
+    for (i in 1..200) needed.add("ppt/slides/slide$i.xml")
+    val xmlFiles = unzipEntries(input, needed)
+
+    return buildString {
+        for (i in 1..200) {
+            val slideXml = xmlFiles["ppt/slides/slide$i.xml"] ?: continue
+            appendLine("Slide $i")
+            appendLine(parseXmlTextElements(slideXml, "t"))
+            appendLine()
+        }
+    }.trim()
+}
+
+private fun unzipEntries(input: InputStream, wantedNames: Set<String>): Map<String, ByteArray> {
+    val result = mutableMapOf<String, ByteArray>()
+    ZipInputStream(input).use { zip ->
+        var entry = zip.nextEntry
+        while (entry != null) {
+            if (entry.name in wantedNames) {
+                result[entry.name] = zip.readBytes()
             }
-            doc.tables.forEachIndexed { tableIndex, table ->
-                appendLine()
-                appendLine("Table ${tableIndex + 1}")
-                table.rows.forEach { row ->
-                    appendLine(row.tableCells.joinToString(" | ") { it.text.trim() })
+            zip.closeEntry()
+            entry = zip.nextEntry
+        }
+    }
+    return result
+}
+
+private fun parseXmlTextElements(xml: ByteArray, localTag: String): String {
+    val factory = XmlPullParserFactory.newInstance()
+    factory.isNamespaceAware = true
+    val parser = factory.newPullParser()
+    parser.setInput(xml.inputStream(), null)
+
+    val result = StringBuilder()
+    var insideTag = false
+    var event = parser.eventType
+    while (event != XmlPullParser.END_DOCUMENT) {
+        when (event) {
+            XmlPullParser.START_TAG -> {
+                if (parser.name == localTag) insideTag = true
+            }
+            XmlPullParser.TEXT -> {
+                if (insideTag) {
+                    val text = parser.text.orEmpty()
+                    if (text.isNotBlank()) result.appendLine(text.trim())
                 }
             }
-        }.trim()
+            XmlPullParser.END_TAG -> {
+                if (parser.name == localTag) insideTag = false
+            }
+        }
+        event = parser.next()
     }
+    return result.toString().trim()
 }
+
+private fun parseSharedStrings(xml: ByteArray): List<String> {
+    val factory = XmlPullParserFactory.newInstance()
+    factory.isNamespaceAware = true
+    val parser = factory.newPullParser()
+    parser.setInput(xml.inputStream(), null)
+
+    val strings = mutableListOf<String>()
+    var currentString = StringBuilder()
+    var inSi = false
+    var inT = false
+    var event = parser.eventType
+    while (event != XmlPullParser.END_DOCUMENT) {
+        when (event) {
+            XmlPullParser.START_TAG -> {
+                when (parser.name) {
+                    "si" -> { inSi = true; currentString = StringBuilder() }
+                    "t" -> if (inSi) inT = true
+                }
+            }
+            XmlPullParser.TEXT -> {
+                if (inT) currentString.append(parser.text.orEmpty())
+            }
+            XmlPullParser.END_TAG -> {
+                when (parser.name) {
+                    "t" -> inT = false
+                    "si" -> { inSi = false; strings.add(currentString.toString()) }
+                }
+            }
+        }
+        event = parser.next()
+    }
+    return strings
+}
+
+private fun parseXlsxSheetNames(xml: ByteArray): List<String> {
+    val factory = XmlPullParserFactory.newInstance()
+    factory.isNamespaceAware = true
+    val parser = factory.newPullParser()
+    parser.setInput(xml.inputStream(), null)
+
+    val names = mutableListOf<String>()
+    var event = parser.eventType
+    while (event != XmlPullParser.END_DOCUMENT) {
+        if (event == XmlPullParser.START_TAG && parser.name == "sheet") {
+            parser.getAttributeValue(null, "name")?.let { names.add(it) }
+        }
+        event = parser.next()
+    }
+    return names
+}
+
+private fun parseXlsxSheet(xml: ByteArray, sharedStrings: List<String>): String {
+    val factory = XmlPullParserFactory.newInstance()
+    factory.isNamespaceAware = true
+    val parser = factory.newPullParser()
+    parser.setInput(xml.inputStream(), null)
+
+    val result = StringBuilder()
+    val rowCells = mutableListOf<String>()
+    var cellType: String? = null
+    var inValue = false
+    var cellText = StringBuilder()
+    var event = parser.eventType
+    while (event != XmlPullParser.END_DOCUMENT) {
+        when (event) {
+            XmlPullParser.START_TAG -> when (parser.name) {
+                "row" -> rowCells.clear()
+                "c" -> {
+                    cellType = parser.getAttributeValue(null, "t")
+                    cellText = StringBuilder()
+                }
+                "v", "t" -> inValue = true
+            }
+            XmlPullParser.TEXT -> {
+                if (inValue) cellText.append(parser.text.orEmpty())
+            }
+            XmlPullParser.END_TAG -> when (parser.name) {
+                "v", "t" -> inValue = false
+                "c" -> {
+                    val raw = cellText.toString()
+                    val display = if (cellType == "s") {
+                        val idx = raw.toIntOrNull()
+                        if (idx != null && idx in sharedStrings.indices) sharedStrings[idx] else raw
+                    } else raw
+                    rowCells.add(display)
+                }
+                "row" -> {
+                    if (rowCells.any { it.isNotBlank() }) {
+                        result.appendLine(rowCells.joinToString(" | "))
+                    }
+                }
+            }
+        }
+        event = parser.next()
+    }
+    return result.toString().trim()
+}
+
+// ---------------------------------------------------------------------------
+// Legacy binary formats: POI core + scratchpad
+// ---------------------------------------------------------------------------
 
 private fun extractDocText(input: InputStream): String {
     return HWPFDocument(input).use { doc ->
@@ -513,8 +903,8 @@ private fun extractDocText(input: InputStream): String {
     }
 }
 
-private fun extractWorkbookText(workbook: Workbook): String {
-    return workbook.use { wb ->
+private fun extractXlsText(input: InputStream): String {
+    return HSSFWorkbook(input).use { wb ->
         val dataFormatter = DataFormatter()
         val evaluator = wb.creationHelper.createFormulaEvaluator()
         buildString {
@@ -537,20 +927,6 @@ private fun extractWorkbookText(workbook: Workbook): String {
     }
 }
 
-private fun extractPptxText(input: InputStream): String {
-    return XMLSlideShow(input).use { show ->
-        buildString {
-            show.slides.forEachIndexed { index, slide ->
-                appendLine("Slide ${index + 1}")
-                slide.shapes.forEach { shape ->
-                    appendSlideShapeText(shape, this)
-                }
-                appendLine()
-            }
-        }.trim()
-    }
-}
-
 private fun extractPptText(input: InputStream): String {
     return HSLFSlideShow(input).use { show ->
         buildString {
@@ -562,19 +938,6 @@ private fun extractPptText(input: InputStream): String {
                 appendLine()
             }
         }.trim()
-    }
-}
-
-private fun appendSlideShapeText(shape: XSLFShape, builder: StringBuilder) {
-    when (shape) {
-        is org.apache.poi.xslf.usermodel.XSLFTextShape -> {
-            val text = shape.text.orEmpty().trim()
-            if (text.isNotBlank()) builder.appendLine(text)
-        }
-        is org.apache.poi.xslf.usermodel.XSLFGroupShape -> {
-            shape.shapes.forEach { appendSlideShapeText(it, builder) }
-        }
-        else -> Unit
     }
 }
 
@@ -591,6 +954,10 @@ private fun appendHslfShapeText(shape: HSLFShape, builder: StringBuilder) {
         shape.shapes.forEach { appendHslfShapeText(it, builder) }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Utility helpers
+// ---------------------------------------------------------------------------
 
 private fun queryDisplayName(context: Context, uri: Uri): String? {
     val projection = arrayOf(android.provider.OpenableColumns.DISPLAY_NAME)
@@ -644,8 +1011,7 @@ private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
     val desiredW = (page.width * baseScale).toInt().coerceAtLeast(480)
     val desiredH = (page.height * baseScale).toInt().coerceAtLeast(640)
 
-    // PdfRenderer requires ARGB_8888 output, so keep the bitmap under a safe cap.
-    val maxPixels = 2_100_000f // ~8.4MB in ARGB_8888
+    val maxPixels = 2_100_000f
     val currentPixels = desiredW.toFloat() * desiredH.toFloat()
     val ratio = if (currentPixels > maxPixels) sqrt(maxPixels / currentPixels) else 1f
     val targetW = (desiredW * ratio).toInt().coerceAtLeast(320)
@@ -656,20 +1022,15 @@ private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
         (targetW * 0.75f).toInt().coerceAtLeast(240) to (targetH * 0.75f).toInt().coerceAtLeast(320),
         (targetW * 0.55f).toInt().coerceAtLeast(180) to (targetH * 0.55f).toInt().coerceAtLeast(260)
     )
-    Log.d(
-        TAG,
-        "PDF page size original=${page.width}x${page.height} desired=${desiredW}x${desiredH} target=${targetW}x${targetH} attempts=$attempts"
-    )
+    Log.d(TAG, "PDF page size original=${page.width}x${page.height} target=${targetW}x${targetH}")
 
     var lastError: Throwable? = null
     for ((w, h) in attempts) {
         var bmp: Bitmap? = null
         try {
-            Log.d(TAG, "Render attempt bitmap=${w}x$h")
             bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             bmp.eraseColor(android.graphics.Color.WHITE)
             page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-            Log.d(TAG, "Render success bitmap=${w}x$h")
             return bmp
         } catch (t: Throwable) {
             bmp?.recycle()
@@ -677,7 +1038,6 @@ private fun renderPdfPageLowMemory(page: PdfRenderer.Page): Bitmap {
             lastError = t
         }
     }
-    Log.e(TAG, "All render attempts failed for page")
     throw IOException("All render attempts failed", lastError)
 }
 
