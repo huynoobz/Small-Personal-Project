@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tab Recorder</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Tab Recorder</h1>
+    <div class="options">
+      <label><input type="checkbox" id="audioEnabled" checked /> Record audio</label>
+      <label><input type="checkbox" id="videoEnabled" checked /> Record video</label>
+    </div>
+    <div class="tab-selector">
+      <label for="tabSelect">Select tab to record</label>
+      <div class="tab-row">
+        <select id="tabSelect"></select>
+        <button id="refreshTabsBtn" type="button">Refresh</button>
+      </div>
+    </div>
+    <div class="controls">
+      <button id="startBtn">Start Recording</button>
+      <button id="stopBtn" disabled>Stop Recording</button>
+      <button id="downloadBtn" disabled>Download</button>
+    </div>
+    <div class="preview-panel">
+      <div class="preview-label">Live monitor</div>
+      <video id="previewVideo" autoplay playsinline hidden></video>
+      <audio id="previewAudio" autoplay hidden></audio>
+    </div>
+    <div id="status" class="status">Ready to record.</div>
+    <div id="note" class="note">Keep this window open while recording. Recording will stop when the window closes.</div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

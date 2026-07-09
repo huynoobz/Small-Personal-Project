@@ -2,8 +2,13 @@ import asyncio
 import edge_tts
 import random
 import re
+import argparse
+import sys
 
-VOICE = "vi-VN-HoaiMyNeural"  # chỉ dùng 1 voice
+VOICES = {
+    "1": ("Nữ", "vi-VN-HoaiMyNeural"),
+    "2": ("Nam", "vi-VN-NamMinhNeural"),
+}
 
 # ================= CLEAN =================
 def clean_text(text):
@@ -52,8 +57,8 @@ def split_text_safe(text, max_len):
 
 
 # ================= SINGLE CALL =================
-async def send_once(text):
-    communicate = edge_tts.Communicate(text, VOICE)
+async def send_once(text, voice):
+    communicate = edge_tts.Communicate(text, voice)
 
     audio = b""
     audio_found = False
@@ -70,8 +75,7 @@ async def send_once(text):
 
 
 # ================= RETRY CHUNK =================
-async def process_chunk(chunk, idx):
-
+async def process_chunk(chunk, idx, voice):
     attempt = 0
     sizes = [2000, 1200, 800, 400, 200]
 
@@ -87,7 +91,7 @@ async def process_chunk(chunk, idx):
             result = b""
 
             for sub in sub_chunks:
-                audio = await send_once(sub)
+                audio = await send_once(sub, voice)
                 result += audio
 
                 # jitter delay
@@ -103,10 +107,45 @@ async def process_chunk(chunk, idx):
             sleep_time = min(5, 0.5 * attempt) + random.uniform(0, 1)
             await asyncio.sleep(sleep_time)
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Chuyển văn bản thành giọng nói bằng Edge TTS",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+Danh sách giọng:
+
+  1  Nữ  - vi-VN-HoaiMyNeural
+  2  Nam - vi-VN-NamMinhNeural
+
+Ví dụ:
+
+  python text2speech_edgeRetries.py input.txt output.mp3
+  python text2speech_edgeRetries.py input.txt output.mp3 -v 2
+"""
+    )
+
+    parser.add_argument(
+        "input",
+        help="File văn bản đầu vào (.txt)"
+    )
+
+    parser.add_argument(
+        "output",
+        help="File âm thanh đầu ra (.mp3)"
+    )
+
+    parser.add_argument(
+        "-v",
+        "--voice",
+        default="1",
+        choices=VOICES.keys(),
+        help="Chọn giọng (1 hoặc 2). Mặc định: 1"
+    )
+
+    return parser.parse_args()
 
 # ================= MAIN =================
-async def txt_to_audio(input_file, output_file):
-
+async def txt_to_audio(input_file, output_file, voice):
     with open(input_file, "r", encoding="utf-8") as f:
         text = clean_text(f.read())
 
@@ -117,9 +156,20 @@ async def txt_to_audio(input_file, output_file):
         for i, chunk in enumerate(chunks):
             print(f"\n=== PROCESS CHUNK {i+1}/{len(chunks)} ===")
 
-            audio = await process_chunk(chunk, i)
+            audio = await process_chunk(chunk, i, voice)
             out.write(audio)
 
+if __name__ == "__main__":
+    args = parse_args()
 
-# ================= RUN =================
-asyncio.run(txt_to_audio("", ""))
+    voice_name, voice_id = VOICES[args.voice]
+
+    print(f"Voice: {voice_name} ({voice_id})")
+
+    asyncio.run(
+        txt_to_audio(
+            args.input,
+            args.output,
+            voice_id
+        )
+    )
