@@ -3,6 +3,7 @@
 Thumbs.db
 
 # ---- Python ----
+.venv-qr/
 __pycache__/
 *.py[cod]
 *.pyo
