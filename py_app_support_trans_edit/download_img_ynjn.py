@@ -1,10 +1,10 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import base64
-import os
 from selenium.webdriver.chrome.options import Options
+import hashlib
+import time
+import os
 
 opts = Options()
 opts.add_argument("--disable-gpu")
@@ -12,33 +12,70 @@ opts.add_argument("--disable-software-rasterizer")
 opts.add_argument("--disable-logging")
 opts.add_argument("--log-level=3")
 
-URL=input("Enter ynjn URL: ")
-OUTPUT_DIR = input("Enter folder name: ")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+url = input("Enter YNJN URL: ").strip()
+output_dir = input("Enter folder name: ").strip()
+
+os.makedirs(output_dir, exist_ok=True)
 
 driver = webdriver.Chrome(options=opts)
-driver.get(URL)
+driver.get(url)
 
 WebDriverWait(driver, 60).until(
     lambda d: d.execute_script(
-        "return document.getElementsByTagName('canvas').length > 0"
+        "return document.querySelectorAll('canvas').length>0"
     )
 )
 
-canvases = driver.find_elements(By.TAG_NAME, "canvas")
-print(f"Found {len(canvases)} canvas elements")
-max = len(canvases)-1
+input("Move to first page, then press Enter...")
 
-input("MAKE ALL IMAGES LOAD, then Enter to download them...")
+saved = set()
+index = 1
 
-for i, canvas in enumerate(canvases):
-    data_url = driver.execute_script(
-        "return arguments[0].toDataURL('image/png');",
-        canvas
-    )
+last_height = 0
+same_height = 0
 
-    header, encoded = data_url.split(",", 1)
-    path = os.path.join(OUTPUT_DIR, f"{max-i}.png")
-    with open(path, "wb") as f:
-        f.write(base64.b64decode(encoded))
-    print("Successfully download", path)
+while True:
+
+    canvases = driver.find_elements(By.TAG_NAME, "canvas")
+
+    for canvas in canvases:
+
+        try:
+            img = canvas.screenshot_as_png
+        except Exception:
+            continue
+
+        md5 = hashlib.md5(img).hexdigest()
+
+        if md5 in saved:
+            continue
+
+        saved.add(md5)
+
+        filename = os.path.join(output_dir, f"{index:03}.png")
+
+        with open(filename, "wb") as f:
+            f.write(img)
+
+        print(f"Saved {filename}")
+
+        index += 1
+
+    driver.execute_script("window.scrollBy(0, window.innerHeight*0.8);")
+    time.sleep(0.6)
+
+    height = driver.execute_script("return window.pageYOffset")
+
+    if height == last_height:
+        same_height += 1
+    else:
+        same_height = 0
+
+    last_height = height
+
+    if same_height >= 5:
+        break
+
+driver.quit()
+
+print(f"Downloaded {index-1} images.")
