@@ -2,15 +2,11 @@
 
 A powerful web-based 3D simulation tool for visualizing differential equations, dynamical systems, and mathematical models in real-time.
 
-**Live Demo:** [Equation 3D Simulator](https://aquamarine-margot-94.tiiny.site/)
-
 ---
 
 # Mô phỏng Phương trình 3D
 
 Công cụ mô phỏng 3D mạnh mẽ trên web để trực quan hóa phương trình vi phân, hệ động lực và mô hình toán học theo thời gian thực.
-
-**Bản demo trực tuyến:** [Equation 3D Simulator](https://aquamarine-margot-94.tiiny.site/)
 
 ---
 
