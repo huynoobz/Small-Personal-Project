@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>Javascript apps by Huynoobz</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; background: #0b1020; color: #f5f7ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; }
+    .shell { min-height: 100vh; background: radial-gradient(circle at 80% 3%, #223575 0, transparent 32rem), radial-gradient(circle at 8% 48%, #18294e 0, transparent 32rem), #0b1020; }
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar { height: 76px; border-bottom: 1px solid #ffffff16; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { font-size: 17px; font-weight: 800; letter-spacing: -.035em; text-decoration: none; }
+    .brand span { color: #82a8ff; }
+    .topbar a:last-child { color: #b4c1dd; font-size: 13px; text-decoration: none; }
+    .topbar a:hover, .source:hover { color: #fff; }
+    .hero { padding: 76px 0 56px; }
+    .eyebrow { margin: 0 0 16px; color: #92b6ff; font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { font-size: clamp(38px, 7vw, 76px); line-height: 1.06; max-width: 800px; letter-spacing: -.065em; margin: 0; }
+    h1 span { background: linear-gradient(105deg, #83aaff, #b5a5ff 66%, #83e4e1); background-clip: text; color: transparent; }
+    .intro { color: #abb9d3; max-width: 610px; font-size: 16px; line-height: 1.7; margin: 22px 0 0; }
+    .list-head { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 20px; margin-bottom: 22px; }
+    h2 { margin: 0 0 6px; font-size: 24px; letter-spacing: -.04em; }
+    .muted { color: #9eacc7; font-size: 13px; margin: 0; }
+    .controls { display: flex; gap: 10px; width: min(100%, 430px); }
+    .search { min-width: 0; flex: 1; background: #17223a; color: #fff; border: 1px solid #34405b; border-radius: 12px; padding: 12px 14px; outline: none; }
+    .search:focus { border-color: #83aaff; box-shadow: 0 0 0 3px #83aaff26; }
+    .search::placeholder { color: #91a0bd; }
+    .refresh, .back { border: 1px solid #3b4e78; background: #1d2d53; color: #dbe6ff; border-radius: 12px; padding: 11px 15px; font-weight: 700; }
+    .refresh:hover, .back:hover { background: #28416e; }
+    .refresh:disabled { opacity: .5; cursor: wait; }
+    .status { color: #aab9d4; font-size: 13px; min-height: 22px; margin: 0 0 14px; }
+    .status.error { color: #ffb5b5; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr)); gap: 16px; padding-bottom: 70px; }
+    .card { display: flex; flex-direction: column; min-height: 232px; border: 1px solid #3b4d6e; border-radius: 19px; padding: 22px; background: linear-gradient(150deg, #202d49, #151e33 74%); box-shadow: 0 12px 30px #0002; }
+    .card:hover { border-color: #7898e8; transform: translateY(-2px); transition: transform .15s, border-color .15s; }
+    .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .icon { width: 39px; height: 39px; display: grid; place-items: center; border-radius: 12px; color: #142238; background: #f5d36a; font-weight: 900; letter-spacing: -.08em; }
+    .badge { border-radius: 999px; border: 1px solid #59735f; color: #a8e8b8; background: #24443670; padding: 5px 9px; font-size: 11px; font-weight: 700; }
+    .card h3 { font-size: 20px; letter-spacing: -.035em; overflow-wrap: anywhere; margin: 20px 0 6px; }
+    .file { color: #9eacc7; font-size: 12px; overflow-wrap: anywhere; margin: 0; }
+    .card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 20px; }
+    .size { color: #9eacc7; font-size: 12px; }
+    .launch { color: #dbe6ff; border: none; background: #3a5fb5; border-radius: 10px; padding: 10px 13px; font-weight: 750; }
+    .launch:hover { background: #5177d0; }
+    .empty { grid-column: 1 / -1; border: 1px dashed #4e5c77; border-radius: 16px; padding: 28px; color: #b8c5dc; }
+    footer { border-top: 1px solid #ffffff16; padding: 24px 0 34px; color: #91a0bd; font-size: 12px; }
+    .source { color: #afc6ff; }
+    .viewer { height: 100dvh; display: flex; flex-direction: column; background: #0b1020; }
+    .viewer-bar { flex: 0 0 auto; min-height: 58px; display: flex; align-items: center; gap: 14px; padding: 8px 18px; border-bottom: 1px solid #33415d; }
+    .viewer-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .viewer-status { margin-left: auto; color: #a8b8d6; font-size: 12px; white-space: nowrap; }
+    iframe { display: block; width: 100%; flex: 1; border: 0; background: #fff; }
+    .viewer-message { padding: 18px; color: #c7d4eb; }
+    .viewer-message.error { color: #ffb5b5; }
+    [hidden] { display: none !important; }
+    @media (max-width: 600px) { .topbar { height: 64px; } .hero { padding: 55px 0 42px; } .viewer-bar { padding: 8px; gap: 8px; } .viewer-status { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="shell" id="home">
+    <header class="wrap topbar">
+      <a class="brand" href="#" aria-label="Trang chủ">Javascript apps <span>by Huynoobz</span></a>
+      <a href="https://github.com/huynoobz/Small-Personal-Project/tree/main/app2javascript" target="_blank" rel="noopener noreferrer">Xem mã nguồn ↗</a>
+    </header>
+    <main class="wrap">
+      <section class="hero">
+        <p class="eyebrow">Bộ sưu tập ứng dụng</p>
+        <h1>Thử nghiệm nhỏ.<br><span>Ý tưởng lớn.</span></h1>
+        <p class="intro">Chọn một ứng dụng để tải và chạy ngay tại đây. Các app đã tải được giữ trên trình duyệt trong một giờ để mở lại nhanh hơn.</p>
+      </section>
+      <section aria-labelledby="apps-title">
+        <div class="list-head">
+          <div><h2 id="apps-title">Khám phá ứng dụng</h2><p class="muted" id="count">Đang lấy danh sách từ GitHub...</p></div>
+          <div class="controls">
+            <input class="search" id="search" type="search" placeholder="Tìm ứng dụng..." aria-label="Tìm ứng dụng">
+            <button class="refresh" id="refresh" type="button" title="Cập nhật danh sách từ GitHub">Làm mới</button>
+          </div>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <div class="grid" id="apps"></div>
+      </section>
+    </main>
+    <footer><div class="wrap">Dữ liệu lấy từ <a class="source" href="https://github.com/huynoobz/Small-Personal-Project/tree/main/app2javascript" target="_blank" rel="noopener noreferrer">Small-Personal-Project / app2javascript</a> · Bộ nhớ tạm hết hạn sau 1 giờ.</div></footer>
+  </div>
+  <section class="viewer" id="viewer" aria-label="Ứng dụng" hidden>
+    <div class="viewer-bar">
+      <button class="back" id="back" type="button">← Trang chủ</button>
+      <span class="viewer-title" id="viewer-title"></span>
+      <span class="viewer-status" id="viewer-status"></span>
+    </div>
+    <div class="viewer-message" id="viewer-message" role="status" aria-live="polite">Đang tải ứng dụng...</div>
+    <iframe id="app-frame" title="Ứng dụng đang chạy" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads allow-pointer-lock" referrerpolicy="no-referrer" hidden></iframe>
+  </section>
+  <script>
+    (() => {
+      'use strict';
+      const OWNER = 'huynoobz';
+      const REPO = 'Small-Personal-Project';
+      const DIRECTORY = 'app2javascript';
+      const TTL = 60 * 60 * 1000;
+      const PREFIX = 'huynoobz:javascript-apps:v1:';
+      const LIST_KEY = PREFIX + 'list';
+      const API_URL = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${DIRECTORY}?ref=main`;
+      const $ = id => document.getElementById(id);
+      const watchedDocuments = new WeakSet();
+      let apps = [];
+      let opening = 0;
+
+      // tiiny.host may add its banner after the page (or the embedded app) loads.
+      function removeHostAds(doc) {
+        for (const img of doc.querySelectorAll('img[src]')) {
+          let url;
+          try { url = new URL(img.getAttribute('src'), doc.baseURI); } catch (_) { continue; }
+          if (url.hostname !== 'tiiny.host' || url.pathname !== '/assets/img/ad.png') continue;
+          const banner = img.closest('div');
+          if (banner && banner !== doc.body && banner !== doc.documentElement) banner.remove();
+          else img.remove();
+        }
+      }
+      function watchHostAds(doc) {
+        if (watchedDocuments.has(doc)) return;
+        watchedDocuments.add(doc);
+        removeHostAds(doc);
+        const observer = new MutationObserver(() => removeHostAds(doc));
+        observer.observe(doc.documentElement, {
+          childList: true, subtree: true, attributes: true, attributeFilter: ['src']
+        });
+      }
+
+      function readCache(key) {
+        try {
+          const item = JSON.parse(localStorage.getItem(key));
+          if (!item || typeof item.savedAt !== 'number' || Date.now() - item.savedAt >= TTL || item.savedAt > Date.now()) {
+            localStorage.removeItem(key);
+            return null;
+          }
+          return item;
+        } catch (_) { return null; }
+      }
+      function saveCache(key, value) {
+        try { localStorage.setItem(key, JSON.stringify({ ...value, savedAt: Date.now() })); return true; }
+        catch (_) { return false; } // Quota or disabled storage: the app still runs.
+      }
+      function pruneCache() {
+        try {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(PREFIX)) readCache(key);
+          }
+        } catch (_) { /* Storage may be unavailable in private mode. */ }
+      }
+      const appKey = path => PREFIX + 'app:' + encodeURIComponent(path);
+      const titleOf = name => name.replace(/\.html?$/i, '').replace(/([a-z\d])([A-Z])/g, '$1 $2').replace(/[-_]+/g, ' ');
+      const fileUrl = path => `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${path.split('/').map(encodeURIComponent).join('/')}`;
+      function setStatus(message, error = false) {
+        $('status').textContent = message;
+        $('status').classList.toggle('error', error);
+      }
+      function cachedApp(app) {
+        const item = readCache(appKey(app.path));
+        return item && item.sha === app.sha && typeof item.html === 'string' ? item : null;
+      }
+      function render() {
+        const query = $('search').value.trim().toLocaleLowerCase();
+        const filtered = apps.filter(app => app.name.toLocaleLowerCase().includes(query));
+        $('count').textContent = `${apps.length} ứng dụng HTML`;
+        $('apps').replaceChildren();
+        if (!filtered.length) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = apps.length ? 'Không tìm thấy ứng dụng phù hợp.' : 'Chưa có ứng dụng HTML trong thư mục.';
+          $('apps').append(empty);
+          return;
+        }
+        for (const app of filtered) {
+          const card = document.createElement('article');
+          card.className = 'card';
+          const top = document.createElement('div');
+          top.className = 'card-top';
+          const icon = document.createElement('span');
+          icon.className = 'icon'; icon.textContent = 'JS';
+          top.append(icon);
+          if (cachedApp(app)) {
+            const badge = document.createElement('span');
+            badge.className = 'badge'; badge.textContent = 'Đã tải · dưới 1 giờ';
+            top.append(badge);
+          }
+          const title = document.createElement('h3'); title.textContent = titleOf(app.name);
+          const filename = document.createElement('p'); filename.className = 'file'; filename.textContent = app.name;
+          const bottom = document.createElement('div'); bottom.className = 'card-bottom';
+          const size = document.createElement('span'); size.className = 'size'; size.textContent = app.size ? `${Math.round(app.size / 1024)} KB` : 'HTML';
+          const button = document.createElement('button'); button.className = 'launch'; button.type = 'button'; button.textContent = 'Mở ứng dụng →';
+          button.addEventListener('click', () => { location.hash = 'app=' + encodeURIComponent(app.name); });
+          bottom.append(size, button); card.append(top, title, filename, bottom); $('apps').append(card);
+        }
+      }
+      async function loadList(force = false) {
+        const saved = !force && readCache(LIST_KEY);
+        if (saved && Array.isArray(saved.apps)) {
+          apps = saved.apps; render(); setStatus('Danh sách đã lưu trong một giờ. Chọn “Làm mới” để kiểm tra ngay.'); return;
+        }
+        $('refresh').disabled = true;
+        setStatus('Đang cập nhật danh sách từ GitHub...');
+        try {
+          const response = await fetch(API_URL, { cache: 'no-store' });
+          if (!response.ok) throw new Error(response.status === 403 ? 'GitHub đang giới hạn số lần truy cập. Hãy thử lại sau.' : `GitHub trả về lỗi ${response.status}.`);
+          const files = await response.json();
+          if (!Array.isArray(files)) throw new Error('Dữ liệu thư mục không hợp lệ.');
+          apps = files.filter(item => item.type === 'file' && /\.html?$/i.test(item.name) && item.name.toLowerCase() !== 'index.html')
+            .map(item => ({ name: item.name, path: item.path, size: item.size, sha: item.sha }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+          saveCache(LIST_KEY, { apps }); render(); setStatus('Danh sách đã được cập nhật.');
+        } catch (error) {
+          const fallback = readCache(LIST_KEY);
+          if (fallback && Array.isArray(fallback.apps)) { apps = fallback.apps; render(); setStatus('Không thể cập nhật. Đang hiển thị danh sách đã lưu.', true); }
+          else { $('count').textContent = 'Chưa tải được danh sách'; $('apps').replaceChildren(); setStatus(error.message || 'Không thể kết nối GitHub. Hãy thử làm mới.', true); }
+        } finally { $('refresh').disabled = false; }
+      }
+      async function openApp(app) {
+        const request = ++opening;
+        $('home').hidden = true; $('viewer').hidden = false;
+        $('viewer-title').textContent = titleOf(app.name);
+        $('viewer-status').textContent = '';
+        $('viewer-message').hidden = false;
+        $('viewer-message').classList.remove('error');
+        $('viewer-message').textContent = 'Đang tải ứng dụng...';
+        $('app-frame').hidden = true;
+        $('app-frame').removeAttribute('srcdoc');
+        try {
+          const saved = cachedApp(app);
+          let html = saved?.html;
+          if (!html) {
+            const response = await fetch(fileUrl(app.path), { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Không thể tải app (HTTP ${response.status}).`);
+            html = await response.text();
+            if (!/<html[\s>]|<!doctype\s+html/i.test(html)) throw new Error('File tải về không phải tài liệu HTML.');
+            if (request !== opening) return;
+            saveCache(appKey(app.path), { sha: app.sha, html });
+          }
+          if (request !== opening) return;
+          // Relative assets in the downloaded document resolve beside the source file.
+          const base = `<base href="${fileUrl(app.path).replace(/[^/]+$/, '')}">`;
+          const documentHtml = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, match => match + base) : base + html;
+          $('app-frame').srcdoc = documentHtml;
+          $('app-frame').hidden = false;
+          $('viewer-message').hidden = true;
+          $('viewer-status').textContent = saved ? 'Đã mở từ bộ nhớ tạm' : 'Đã tải từ GitHub';
+          render();
+        } catch (error) {
+          if (request !== opening) return;
+          $('viewer-message').classList.add('error');
+          $('viewer-message').textContent = `${error.message || 'Không thể mở ứng dụng.'} Hãy quay lại trang chủ và thử lại.`;
+        }
+      }
+      function showHome() {
+        ++opening;
+        $('viewer').hidden = true; $('home').hidden = false;
+        $('app-frame').removeAttribute('srcdoc');
+        render();
+      }
+      function route() {
+        if (!location.hash.startsWith('#app=')) { showHome(); return; }
+        let name;
+        try { name = decodeURIComponent(location.hash.slice(5)); } catch (_) { showHome(); return; }
+        const app = apps.find(item => item.name === name);
+        if (app) openApp(app);
+        else { showHome(); setStatus('Ứng dụng không có trong danh sách. Hãy làm mới và thử lại.', true); }
+      }
+      $('back').addEventListener('click', () => { location.hash = ''; });
+      $('refresh').addEventListener('click', async () => { await loadList(true); route(); });
+      $('search').addEventListener('input', render);
+      window.addEventListener('hashchange', route);
+      document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('viewer').hidden) location.hash = ''; });
+      watchHostAds(document);
+      $('app-frame').addEventListener('load', () => {
+        try { watchHostAds($('app-frame').contentDocument); }
+        catch (_) { /* A navigated cross-origin frame cannot be inspected. */ }
+      });
+      pruneCache();
+      loadList().then(route);
+    })();
+  </script>
+</body>
+</html>
